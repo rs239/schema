@@ -21,11 +21,11 @@ The examples provided here are also available in the examples/Schema_demo.ipynb 
 ### Installation
 pip install schema_learn
 
-For the examples below you'll also need scanpy ("pip install scanpy").
+For the examples below, you'll also need scanpy ("pip install scanpy").
 We use fast_tsne below for visualization, but feel free to use your favorite tool. 
 
 ### Sample Data
-The data in the examples below is from the paper below; we thank the authors for making it available
+The data in the examples below is from the paper below; we thank the authors for making it available:
   * Tasic et al. *Shared and distinct transcriptomic cell types across neocortical areas*. Nature. 2018 Nov;563(7729):72-78. doi:10.1038/s41586-018-0654-5
 
 We make available a processed subset of the data for demonstration and analysis.
@@ -57,8 +57,8 @@ dx_pca = afx.fit_transform(adata.X, # primary dataset
                           )
 ```
 This uses PCA as the change-of-basis transform, requires a min_desired_corr of 0.75, and maximizes
-correlation between gene expression (the primary dataset) and the non-leaf-level cluster labels
-("class") produced during Tasic et al.'s hierarchical clustering.
+correlation between gene expression (the primary dataset) and supercluster  
+(i.e. higher-level clusters) labels produced during Tasic et al.'s hierarchical clustering.
 
 
 ### More Schema examples
