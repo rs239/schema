@@ -59,7 +59,7 @@ dx_pca = afx.fit_transform(adata.X, # primary dataset
 ```
 This uses PCA as the change-of-basis transform; requires a min corr of 0.75 between the 
 primary dataset (gene expression) and the transformed dataset; and maximizes
-correlation between the primary dataset and the secondary dataset, supercluster  
+correlation between the primary dataset and the secondary dataset, supercluster 
 (i.e. higher-level clusters) labels produced during Tasic et al.'s hierarchical clustering.
 
 
