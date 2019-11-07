@@ -41,6 +41,7 @@ The processing of raw data here broadly followed the steps in Kobak & Berens
 The gene expression data has been count-normalized and log-transformed.
 
 ```python
+import scanpy as sc
 adata = sc.read(DATASET_DIR + "/" + "Schema_demo_Tasic2018.h5ad")
 ```
 
