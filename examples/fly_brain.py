@@ -3,7 +3,7 @@ from anndata import AnnData
 import numpy as np
 import scanpy as sc
 
-from process import load_names
+from .process import load_names
 
 def load_meta(fname):
     age, strain = [], []
@@ -47,7 +47,6 @@ if __name__ == '__main__':
             min_desired_corr=schema_corr,
             w_max_to_avg=100,
             params={
-                'mode': 'affine',
                 'decomposition_model': 'nmf',
                 'num_top_components': 20,
             },
