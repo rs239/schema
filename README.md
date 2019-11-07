@@ -45,7 +45,7 @@ import scanpy as sc
 adata = sc.read(DATASET_DIR + "/" + "Schema_demo_Tasic2018.h5ad")
 ```
 
-### Schema: A simple example
+### Schema: a simple example
 
 
 ```python
@@ -53,8 +53,8 @@ from schema import SchemaQP
 afx = SchemaQP(0.75) # min_desired_corr is the only required argument.
 
 dx_pca = afx.fit_transform(adata.X, # primary dataset
-                           [adata.obs["class"].values], # one secondary dataset
-                           ['categorical'] #it has labels, i.e., is a categorical datatype
+                           [adata.obs["class"].values], # just one secondary dataset
+                           ['categorical'] # has labels, i.e., is a categorical datatype
                           )
 ```
 This uses PCA as the change-of-basis transform; requires a min corr of 0.75 between the 
