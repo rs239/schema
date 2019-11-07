@@ -1,0 +1,16 @@
+*.egg-info
+*.log
+*.log.*
+*.pdf
+*.png
+*.pyc
+*.svg
+*.txt
+*~
+.#*
+build/
+data
+dist/
+plots*
+target*
+temp*
