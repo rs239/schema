@@ -126,8 +126,8 @@ for i,p in enumerate([("Original", adata.X),
 ### Constructor
 Initializes the SchemaQP object
 
-Parameters
-----------
+#### Parameters
+
 min_desired_corr: float, [0,1)
 
     The minimum desired correlation between squared L2 distances in the transformed space
@@ -191,8 +191,7 @@ mode: string {'affine', 'scale'} (default 'affine')
                             need to do that yourself and then call SchemaQP with the transformed
                             primary dataset with mode='scale'
 
-Returns
--------
+#### Returns
 
     a SchemaQP object on which you can call fit(...), transform(...) or fit_transform(....)
 
@@ -204,8 +203,8 @@ Given the primary dataset 'd' and a list of secondary datasets, fit a linear tra
     min_desired_corr
 
 
-Parameters
-----------
+#### Parameters
+
 d:  a numpy 2-d array
  
     The primary dataset (e.g. scanpy/anndata's .X).
@@ -268,8 +267,8 @@ secondary_data_dist_transform: (default = None) list of functions, each taking a
     If specified, the length of the list should match that of secondary_data_val_list
  
  
-Returns:
---------
+#### Returns:
+
     Nothing
  
  
@@ -277,15 +276,14 @@ Returns:
 Given a dataset 'd', apply the fitted transform to it
  
  
-Parameters
-----------
+#### Parameters
+
 d:  a numpy 2-d array with same number of columns as primary dataset 'd' in the fit(...)
  
     The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
  
  
-Returns
--------
+#### Returns
  
  a 2-d numpy array with the same shape as d
  
