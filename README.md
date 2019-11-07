@@ -1,3 +1,5 @@
+# Schema
+
 Schema is a general algorithm for integrating heterogeneous data
 modalities. It has been specially designed for multi-modal
 single-cell biological datasets, but should work in other contexts too.
@@ -26,13 +28,15 @@ We use fast_tsne below for visualization, but feel free to use your favorite too
 The data in the examples below is from the paper below; we thank the authors for making it available
   * Tasic et al. *Shared and distinct transcriptomic cell types across neocortical areas*. Nature. 2018 Nov;563(7729):72-78. doi:10.1038/s41586-018-0654-5
 
-We make available a processed subset of the data for demonstration and analysis
+We make available a processed subset of the data for demonstration and analysis.
 Linux shell commands to get this data:
   * wget http://schema.csail.mit.edu/datasets/Schema_demo_Tasic2018.h5ad.gz
   * gunzip Schema_demo_Tasic2018.h5ad.gz
+  
 In python, set the DATASET_DIR variable to the folder containing this file.
 
-The processing of raw data here broadly followed the steps in Kobak & Berens, https://www.biorxiv.org/content/10.1101/453449v1
+The processing of raw data here broadly followed the steps in Kobak & Berens
+  * https://www.biorxiv.org/content/10.1101/453449v1
 The gene expression data has been count-normalized and log-transformed.Here's how you can get them:
 
 ```python
@@ -51,16 +55,16 @@ dx_pca = afx.fit_transform(adata.X, # primary dataset
                            ['categorical'] #it has labels, i.e., is a categorical datatype
                           )
 ```
-This uses PCA as the change-of-basis transform requires a min_desired_corr of 0.75 and maximizes
-correlation with between the primary dataset, gene expression, and the secondary dataset of higher-level-cluster labels
-in a hierarchical clustering tree. 
+This uses PCA as the change-of-basis transform, requires a min_desired_corr of 0.75, and maximizes
+correlation between gene expression (the primary dataset) and the non-leaf-level-cluster labels
+("class") produced during a hierarchical clustering approach. 
 
 ### More Schema examples
   * In all of what follows, the primary dataset is gene expression. The secondary datasets are 1) cluster IDs; and/or 2) cell-type "class" variables which correspond to superclusters (i.e. higher-level clusters) in the Tasic et al. paper.
 
 
 
-#### With NMF as change-of-basis, a different min_desired_corr and two secondary datasets
+#### With NMF as change-of-basis, a different min_desired_corr, and two secondary datasets
 
 
 ```python
@@ -120,11 +124,12 @@ for i,p in enumerate([("Original", adata.X),
 ## API
 
 ### Constructor
-Initialize the SchemaQP object
+Initializes the SchemaQP object
 
 Parameters
 ----------
 min_desired_corr: float, [0,1)
+
     The minimum desired correlation between squared L2 distances in the transformed space
     and distances in the original space.
 
@@ -137,6 +142,7 @@ min_desired_corr: float, [0,1)
 
 
 w_max_to_avg: float, >1 (default 100)
+
      Sets the upper-bound on the ratio of w's largest element to w's avg element.
      Making it large will allow for more severe transformations.
 
@@ -150,6 +156,7 @@ w_max_to_avg: float, >1 (default 100)
 
 
 params: dict of key-value pairs (see defaults below)
+
      Additional configuration parameters.
      Here are the important ones:
        * decomposition_model: "pca" or "nmf" (default=pca)
@@ -168,6 +175,7 @@ params: dict of key-value pairs (see defaults below)
 
 
 mode: string {'affine', 'scale'} (default 'affine')
+
     Whether to perform a general affine transformation or just a scaling transformation
 
     * 'scale' does scaling transformations only.
@@ -185,6 +193,7 @@ mode: string {'affine', 'scale'} (default 'affine')
 
 Returns
 -------
+
     a SchemaQP object on which you can call fit(...), transform(...) or fit_transform(....)
 
 
@@ -198,17 +207,20 @@ Given the primary dataset 'd' and a list of secondary datasets, fit a linear tra
 Parameters
 ----------
 d:  a numpy 2-d array
+
    The primary dataset (e.g. scanpy/anndata's .X).
    The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
    The default distance measure computed is L2: sum((point1-point2)**2). See d0_dist_transform.
 
 
 secondary_data_val_list: list of 1-d or 2-d numpy arrays, each with same number of rows as 'd'
+
    The secondary datasets you want to align the primary data towards.
    Columns in scanpy's .obs variables work well (just remember to use .values)
 
 
 secondary_data_type_list: list of strings, each value in {'numeric','feature_vector','categorical'}
+
    The list's length should match the length of secondary_data_val_list
 
    * 'numeric' means you're giving one floating-pt value for each obs.
@@ -220,6 +232,7 @@ secondary_data_type_list: list of strings, each value in {'numeric','feature_vec
 
 
 secondary_data_wt_list: optional, (default=None) list of floats
+
    User-specified wts for each dataset. If 'None', the wts are 1.
    If specified, the list's length should match the length of secondary_data_wt_list
 
@@ -229,6 +242,7 @@ secondary_data_wt_list: optional, (default=None) list of floats
 
 
 d0: (default=None) a 1-d or 2-d numpy array, same number of rows as 'd'
+
    An alternative representation of the primary dataset.
 
    HANDLE WITH CARE! Most likely, you don't need this parameter.
@@ -238,6 +252,7 @@ d0: (default=None) a 1-d or 2-d numpy array, same number of rows as 'd'
 
 
 d0_dist_transform: (default=None) a function that takes a non-negative float as input and
+
                    returns a non-negative float.
                    returns a non-negative float.
 
@@ -265,8 +280,11 @@ Given a dataset 'd', apply the fitted transform to it
 Parameters
 ----------
 d:  a numpy 2-d array with same number of columns as primary dataset 'd' in the fit(...)
+
    The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
+
 
 Returns
 -------
+
 a 2-d numpy array with the same shape as d
