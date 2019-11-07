@@ -183,64 +183,64 @@ class SchemaQP:
         Parameters
         ----------
         d:  a numpy 2-d array
-           The primary dataset (e.g. scanpy/anndata's .X).
-           The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
-           The default distance measure computed is L2: sum((point1-point2)**2). See d0_dist_transform.
-
-
+            The primary dataset (e.g. scanpy/anndata's .X).
+            The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
+            The default distance measure computed is L2: sum((point1-point2)**2). See d0_dist_transform.
+ 
+ 
         secondary_data_val_list: list of 1-d or 2-d numpy arrays, each with same number of rows as 'd'
-           The secondary datasets you want to align the primary data towards. 
-           Columns in scanpy's .obs variables work well (just remember to use .values)
-
-
+            The secondary datasets you want to align the primary data towards. 
+            Columns in scanpy's .obs variables work well (just remember to use .values)
+ 
+ 
         secondary_data_type_list: list of strings, each value in {'numeric','feature_vector','categorical'}
-           The list's length should match the length of secondary_data_val_list
-
-           * 'numeric' means you're giving one floating-pt value for each obs.
-                 The default distance measure is L2:  (point1-point2)**2
-           * 'feature_vector' means you're giving some multi-dimensional representation for each obs.
-                 The default distance measure is L2: sum((point1-point2)**2)
-           * 'categorical' means that you are providing label information that should be compared for equality.
-                 The default distance measure is: 1*(val1!=val2)
-
-
+            The list's length should match the length of secondary_data_val_list
+ 
+            * 'numeric' means you're giving one floating-pt value for each obs.
+                  The default distance measure is L2:  (point1-point2)**2
+            * 'feature_vector' means you're giving some multi-dimensional representation for each obs.
+                  The default distance measure is L2: sum((point1-point2)**2)
+            * 'categorical' means that you are providing label information that should be compared for equality.
+                  The default distance measure is: 1*(val1!=val2)
+ 
+ 
         secondary_data_wt_list: optional, (default=None) list of floats
-           User-specified wts for each dataset. If 'None', the wts are 1.
-           If specified, the list's length should match the length of secondary_data_wt_list
-
-           NOTE: you can try to get a mapping that *disagrees* with a dataset_info instead of *agreeing*.
-             To do so, pass in a negative number (e.g., -1)  here. This works even if you have just one secondary 
-             dataset
-
-
+            User-specified wts for each dataset. If 'None', the wts are 1.
+            If specified, the list's length should match the length of secondary_data_wt_list
+ 
+            NOTE: you can try to get a mapping that *disagrees* with a dataset_info instead of *agreeing*.
+              To do so, pass in a negative number (e.g., -1)  here. This works even if you have just one secondary 
+              dataset
+ 
+ 
         d0: (default=None) a 1-d or 2-d numpy array, same number of rows as 'd'
-           An alternative representation of the primary dataset.
-
-           HANDLE WITH CARE! Most likely, you don't need this parameter.
-           This is useful if you want to provide the primary dataset in two forms: one for transforming and
-           another one for computing pairwise distances to use in the QP constraint; if so, 'd' is used for the
-           former, while 'd0' is used for the latter
-
-
+            An alternative representation of the primary dataset.
+ 
+            HANDLE WITH CARE! Most likely, you don't need this parameter.
+            This is useful if you want to provide the primary dataset in two forms: one for transforming and
+            another one for computing pairwise distances to use in the QP constraint; if so, 'd' is used for the
+            former, while 'd0' is used for the latter
+ 
+ 
         d0_dist_transform: (default=None) a function that takes a non-negative float as input and 
-                           returns a non-negative float.
-
-           HANDLE WITH CARE! Most likely, you don't need this parameter.
-           The transformation to apply on d or d0's L2 distances before using them for correlations.
-
-
+                            returns a non-negative float.
+ 
+            HANDLE WITH CARE! Most likely, you don't need this parameter.
+            The transformation to apply on d or d0's L2 distances before using them for correlations.
+ 
+ 
         secondary_data_dist_transform: (default = None) list of functions, each taking a non-negative float and 
-                                        returning a non-negative float
-
-           HANDLE WITH CARE! Most likely, you don't need this parameter.
-           The transformations to apply on secondary dataset's L2 distances before using them for correlations.
-           If specified, the length of the list should match that of secondary_data_val_list
-
-        
+                                         returning a non-negative float
+ 
+            HANDLE WITH CARE! Most likely, you don't need this parameter.
+            The transformations to apply on secondary dataset's L2 distances before using them for correlations.
+            If specified, the length of the list should match that of secondary_data_val_list
+ 
+         
         Returns: 
         --------
-           Nothing
-        """
+            Nothing
+         """
         
         if not (d.ndim==2): raise ValueError('d should be a 2-d array')
         if not (len(secondary_data_val_list) >0): raise ValueError('secondary_data_val_list can not be empty')
@@ -288,12 +288,12 @@ class SchemaQP:
         Parameters
         ----------
         d:  a numpy 2-d array with same number of columns as primary dataset 'd' in the fit(...)
-           The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
-
+            The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
+ 
         Returns
         -------
-        a 2-d numpy array with the same shape as d  
-        """
+            a 2-d numpy array with the same shape as d  
+         """
         
         if self._mode=="scale":
             if not (d.shape[1] == len(self._wts)): raise ValueError('Number of columns in d is incorrect')

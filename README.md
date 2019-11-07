@@ -7,7 +7,7 @@ This version is based on a Quadratic Programming Framework.
 
 
 It is described in the paper
-“Schema: A general framework for integrating heterogeneous single-cell modalities”
+“*Schema: A general framework for integrating heterogeneous single-cell modalities*”
 
 
 
@@ -37,6 +37,7 @@ In python, set the DATASET_DIR variable to the folder containing this file.
 
 The processing of raw data here broadly followed the steps in Kobak & Berens
   * https://www.biorxiv.org/content/10.1101/453449v1
+  
 The gene expression data has been count-normalized and log-transformed.Here's how you can get them:
 
 ```python
@@ -48,7 +49,7 @@ adata = sc.read(DATASET_DIR + "/" + "Schema_demo_Tasic2018.h5ad")
 
 ```python
 from schema import SchemaQP
-afx = SchemaQP(0.6) # min_desired_corr is the only required argument.
+afx = SchemaQP(0.75) # min_desired_corr is the only required argument.
 
 dx_pca = afx.fit_transform(adata.X, # primary dataset
                            [adata.obs["class"].values], # one secondary dataset
@@ -64,7 +65,7 @@ correlation between gene expression (the primary dataset) and the non-leaf-level
 
 
 
-#### With NMF as change-of-basis, a different min_desired_corr, and two secondary datasets
+#### With NMF (Non-negative Matrix Factorization) as change-of-basis, a different min_desired_corr, and two secondary datasets
 
 
 ```python
@@ -251,9 +252,8 @@ d0: (default=None) a 1-d or 2-d numpy array, same number of rows as 'd'
  
  
 d0_dist_transform: (default=None) a function that takes a non-negative float as input and
- 
                     returns a non-negative float.
-                    returns a non-negative float.
+
  
     HANDLE WITH CARE! Most likely, you don't need this parameter.
     The transformation to apply on d or d0's L2 distances before using them for correlations.
