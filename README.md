@@ -38,7 +38,7 @@ In python, set the DATASET_DIR variable to the folder containing this file.
 The processing of raw data here broadly followed the steps in Kobak & Berens
   * https://www.biorxiv.org/content/10.1101/453449v1
   
-The gene expression data has been count-normalized and log-transformed.Here's how you can get them:
+The gene expression data has been count-normalized and log-transformed.
 
 ```python
 adata = sc.read(DATASET_DIR + "/" + "Schema_demo_Tasic2018.h5ad")
