@@ -3,7 +3,7 @@
 Schema is a general algorithm for integrating heterogeneous data
 modalities. It has been specially designed for multi-modal
 single-cell biological datasets, but should work in other contexts too.
-This version is based on a Quadratic Programming Framework.
+This version is based on a Quadratic Programming framework.
 
 
 It is described in the paper
@@ -57,8 +57,9 @@ dx_pca = afx.fit_transform(adata.X, # primary dataset
                           )
 ```
 This uses PCA as the change-of-basis transform, requires a min_desired_corr of 0.75, and maximizes
-correlation between gene expression (the primary dataset) and the non-leaf-level-cluster labels
-("class") produced during a hierarchical clustering approach. 
+correlation between gene expression (the primary dataset) and the non-leaf-level cluster labels
+("class") produced during Tasic et al.'s hierarchical clustering.
+
 
 ### More Schema examples
   * In all of what follows, the primary dataset is gene expression. The secondary datasets are 1) cluster IDs; and/or 2) cell-type "class" variables which correspond to superclusters (i.e. higher-level clusters) in the Tasic et al. paper.
