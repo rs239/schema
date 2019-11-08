@@ -7,7 +7,7 @@ This version is based on a Quadratic Programming framework.
 
 
 It is described in the paper
-[*Schema: A general framework for integrating heterogeneous single-cell modalities*”](https://www.biorxiv.org/content/10.1101/834549v1).
+["*Schema: A general framework for integrating heterogeneous single-cell modalities*"](https://www.biorxiv.org/content/10.1101/834549v1).
 
 
 
