@@ -34,10 +34,12 @@ class SchemaQP:
            single-cell biological datasets, but should work in other contexts too.
        This version is based on a Quadratic Programming Framework.
 
+       Source code, API documentation and Examples available at: 
+       https://github.com/rs239/schema 
 
        It is described in the paper “Schema: A general framework for integrating 
            heterogeneous single-cell modalities” 
-
+       https://www.biorxiv.org/content/10.1101/834549v1/
 
        This class provides a sklearn type fit+transform API for affine 
            transformations of input datasets such that the transformed data 
@@ -67,72 +69,75 @@ class SchemaQP:
            Fit+Transform
            -------------
            dnew = sqp.fit_transform( df.values, [srs.values], ['numeric'], [-1]) 
+    
+#### Parameters
+
+`min_desired_corr`: `float` in [0,1)
+
+    The minimum desired correlation between squared L2 distances in the transformed space
+    and distances in the original space.
 
 
-       Parameters
-       ----------
-       min_desired_corr: float, [0,1) 
-           The minimum desired correlation between squared L2 distances in the transformed space 
-           and distances in the original space.
+    RECOMMENDED VALUES: At first, you should try a range of values (e.g., 0.99, 0.90, 0.50).
+                        This will give you a sense of what might work well for your data.
+                        After this, you can progressively narrow down your range.
+                        In typical use-cases of large biological datasets,
+                        high values (> 0.80) will probably work best.
 
 
-           RECOMMENDED VALUES: At first, you should try a range of values (e.g., 0.99, 0.90, 0.50).
-                               This will give you a sense of what might work well for your data.
-                               After this, you can progressively narrow down your range.
-                               In typical use-cases of large biological datasets,
-                               high values (> 0.80) will probably work best.
+`w_max_to_avg`: `float` >1, optional (default: 100)
+
+     Sets the upper-bound on the ratio of w's largest element to w's avg element.
+     Making it large will allow for more severe transformations.
+
+    RECOMMENDED VALUES: Start by keeping this constraint very loose; the default value (100) does
+                        this, ensuring that min_desired_corr remains the binding constraint.
+                        Later, as you get a better sense for the right min_desired_corr values
+                        for your data, you can experiment with this too.
+
+                        To really constrain this, set it in the (1-5] range, depending on
+                        how many features you have.
 
 
-       w_max_to_avg: float, >1 (default 100)
-            Sets the upper-bound on the ratio of w's largest element to w's avg element. 
-            Making it large will allow for more severe transformations.
+`params`: `dict` of key-value pairs, optional (see defaults below)
 
-           RECOMMENDED VALUES: Start by keeping this constraint very loose; the default value (100) does
-                               this, ensuring that min_desired_corr remains the binding constraint.
-                               Later, as you get a better sense for the right min_desired_corr values
-                               for your data, you can experiment with this too.
+     Additional configuration parameters.
+     Here are the important ones:
+       * decomposition_model: "pca" or "nmf" (default=pca)
+       * num_top_components: (default=50) number of PCA (or NMF) components to use
+           when mode=="affine".
 
-                               To really constrain this, set it in the (1-5] range, depending on
-                               how many features you have.
-
-
-       params: dict of key-value pairs (see defaults below)
-            Additional configuration parameters.
-            Here are the important ones:
-              * decomposition_model: "pca" or "nmf" (default=pca)
-              * num_top_components: (default=50) number of PCA (or NMF) components to use
-                  when mode=="affine".
-
-            You can ignore the rest on your first pass; the default values are pretty reasonable:
-              * dist_npairs: (default=2000000). How many pt-pairs to use for computing pairwise distances
-                  value=None means compute exhaustively over all n*(n-1)/2 pt-pairs. Not recommended for n>5000.
-                  Otherwise, the given number of pt-pairs is sampled randomly. The sampling is done
-                  in a way in which each point will be represented roughly equally.
-              * scale_mode_uses_standard_scaler: 1 or 0 (default=0), apply the standard scaler
-                  in the scaling mode
-              * do_whiten: 1 or 0 (default=1). When mode=="affine", should the change-of-basis loadings
-                  be made 1-variance?
+     You can ignore the rest on your first pass; the default values are pretty reasonable:
+       * dist_npairs: (default=2000000). How many pt-pairs to use for computing pairwise distances
+           value=None means compute exhaustively over all n*(n-1)/2 pt-pairs. Not recommended for n>5000.
+           Otherwise, the given number of pt-pairs is sampled randomly. The sampling is done
+           in a way in which each point will be represented roughly equally.
+       * scale_mode_uses_standard_scaler: 1 or 0 (default=0), apply the standard scaler
+           in the scaling mode
+       * do_whiten: 1 or 0 (default=1). When mode=="affine", should the change-of-basis loadings
+           be made 1-variance?
 
 
-       mode: string {'affine', 'scale'} (default 'affine')
-           Whether to perform a general affine transformation or just a scaling transformation
+`mode`: `string` one of {`'affine'`, `'scale'`}, optional (default: `'affine'`)
 
-           * 'scale' does scaling transformations only.
-           * 'affine' first does a mapping to PCA or NMF space (you can specify n_components)
-                It then does a scaling transform in that space and then maps everything back to the
-                regular space, the final space being an affine transformation
+    Whether to perform a general affine transformation or just a scaling transformation
 
-           RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to do the change-of-basis.
-                               You'll want 'scale' only in one of two cases:
-                                1) you have some features on which you directly want Schema to compute
-                                   feature-weights
-                                2) you want to do a change-of-basis transform other PCA or NMF. If so, you will
-                                   need to do that yourself and then call SchemaQP with the transformed
-                                   primary dataset with mode='scale'
+    * 'scale' does scaling transformations only.
+    * 'affine' first does a mapping to PCA or NMF space (you can specify n_components)
+         It then does a scaling transform in that space and then maps everything back to the
+         regular space, the final space being an affine transformation
 
-       Returns
-       -------
-           a SchemaQP object on which you can call fit(...), transform(...) or fit_transform(....)
+    RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to do the change-of-basis.
+                        You'll want 'scale' only in one of two cases:
+                         1) You have some features on which you directly want Schema to compute
+                            feature-weights.
+                         2) You want to do a change-of-basis transform other PCA or NMF. If so, you will
+                            need to do that yourself and then call SchemaQP with the transformed
+                            primary dataset with mode='scale'.
+
+#### Returns
+
+    A SchemaQP object on which you can call fit(...), transform(...) or fit_transform(....).
 
     """
 
@@ -174,72 +179,78 @@ class SchemaQP:
     
     def fit(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, d0 = None, d0_dist_transform=None, secondary_data_dist_transform_list=None):
         """
-        Given the primary dataset 'd' and a list of secondary datasets, fit a linear transformation (d*) of
-           'd' such that the correlation between squared pairwise distances in d* and those in secondary datasets
-            is maximized while the correlation between the primary dataset d and d* remains above
-            min_desired_corr
+Given the primary dataset 'd' and a list of secondary datasets, fit a linear transformation (d*) of
+   'd' such that the correlation between squared pairwise distances in d* and those in secondary datasets
+    is maximized while the correlation between the primary dataset d and d* remains above
+    min_desired_corr
 
 
-        Parameters
-        ----------
-        d:  a numpy 2-d array
-            The primary dataset (e.g. scanpy/anndata's .X).
-            The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
-            The default distance measure computed is L2: sum((point1-point2)**2). See d0_dist_transform.
- 
- 
-        secondary_data_val_list: list of 1-d or 2-d numpy arrays, each with same number of rows as 'd'
-            The secondary datasets you want to align the primary data towards. 
-            Columns in scanpy's .obs variables work well (just remember to use .values)
- 
- 
-        secondary_data_type_list: list of strings, each value in {'numeric','feature_vector','categorical'}
-            The list's length should match the length of secondary_data_val_list
- 
-            * 'numeric' means you're giving one floating-pt value for each obs.
-                  The default distance measure is L2:  (point1-point2)**2
-            * 'feature_vector' means you're giving some multi-dimensional representation for each obs.
-                  The default distance measure is L2: sum((point1-point2)**2)
-            * 'categorical' means that you are providing label information that should be compared for equality.
-                  The default distance measure is: 1*(val1!=val2)
- 
- 
-        secondary_data_wt_list: optional, (default=None) list of floats
-            User-specified wts for each dataset. If 'None', the wts are 1.
-            If specified, the list's length should match the length of secondary_data_wt_list
- 
-            NOTE: you can try to get a mapping that *disagrees* with a dataset_info instead of *agreeing*.
-              To do so, pass in a negative number (e.g., -1)  here. This works even if you have just one secondary 
-              dataset
- 
- 
-        d0: (default=None) a 1-d or 2-d numpy array, same number of rows as 'd'
-            An alternative representation of the primary dataset.
- 
-            HANDLE WITH CARE! Most likely, you don't need this parameter.
-            This is useful if you want to provide the primary dataset in two forms: one for transforming and
-            another one for computing pairwise distances to use in the QP constraint; if so, 'd' is used for the
-            former, while 'd0' is used for the latter
- 
- 
-        d0_dist_transform: (default=None) a function that takes a non-negative float as input and 
-                            returns a non-negative float.
- 
-            HANDLE WITH CARE! Most likely, you don't need this parameter.
-            The transformation to apply on d or d0's L2 distances before using them for correlations.
- 
- 
-        secondary_data_dist_transform: (default = None) list of functions, each taking a non-negative float and 
-                                         returning a non-negative float
- 
-            HANDLE WITH CARE! Most likely, you don't need this parameter.
-            The transformations to apply on secondary dataset's L2 distances before using them for correlations.
-            If specified, the length of the list should match that of secondary_data_val_list
- 
-         
-        Returns: 
-        --------
-            Nothing
+#### Parameters
+
+`d`: A numpy 2-d `array`
+
+    The primary dataset (e.g. scanpy/anndata's .X).
+    The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
+    The default distance measure computed is L2: sum((point1-point2)**2). See d0_dist_transform.
+
+
+`secondary_data_val_list`: `list` of 1-d or 2-d numpy `array`s, each with same number of rows as `d`
+
+    The secondary datasets you want to align the primary data towards.
+    Columns in scanpy's .obs variables work well (just remember to use .values)
+
+
+`secondary_data_type_list`: `list` of `string`s, each value in {'numeric','feature_vector','categorical'}
+
+    The list's length should match the length of secondary_data_val_list
+
+    * 'numeric' means you're giving one floating-pt value for each obs.
+          The default distance measure is L2:  (point1-point2)**2
+    * 'feature_vector' means you're giving some multi-dimensional representation for each obs.
+          The default distance measure is L2: sum((point1-point2)**2)
+    * 'categorical' means that you are providing label information that should be compared for equality.
+          The default distance measure is: 1*(val1!=val2)
+
+
+`secondary_data_wt_list`: `list` of `float`s, optional (default: `None`)
+
+    User-specified wts for each dataset. If 'None', the wts are 1.
+    If specified, the list's length should match the length of secondary_data_wt_list
+
+    NOTE: you can try to get a mapping that *disagrees* with a dataset_info instead of *agreeing*.
+      To do so, pass in a negative number (e.g., -1)  here. This works even if you have just one secondary
+      dataset
+
+
+`d0`: A 1-d or 2-d numpy array, same number of rows as 'd', optional (default: `None`)
+
+    An alternative representation of the primary dataset.
+
+    HANDLE WITH CARE! Most likely, you don't need this parameter.
+    This is useful if you want to provide the primary dataset in two forms: one for transforming and
+    another one for computing pairwise distances to use in the QP constraint; if so, 'd' is used for the
+    former, while 'd0' is used for the latter
+
+
+`d0_dist_transform`: a function that takes a non-negative float as input and
+                    returns a non-negative float, optional (default: `None`)
+
+
+    HANDLE WITH CARE! Most likely, you don't need this parameter.
+    The transformation to apply on d or d0's L2 distances before using them for correlations.
+
+
+`secondary_data_dist_transform`: `list` of functions, each taking a non-negative float and
+                                 returning a non-negative float, optional (default: `None`)
+
+    HANDLE WITH CARE! Most likely, you don't need this parameter.
+    The transformations to apply on secondary dataset's L2 distances before using them for correlations.
+    If specified, the length of the list should match that of secondary_data_val_list
+
+
+#### Returns:
+
+    None
          """
         
         if not (d.ndim==2): raise ValueError('d should be a 2-d array')
@@ -282,17 +293,19 @@ class SchemaQP:
             
     def transform(self, d):
         """
-        Given a dataset 'd', apply the fitted transform to it
+Given a dataset `d`, apply the fitted transform to it
 
 
-        Parameters
-        ----------
-        d:  a numpy 2-d array with same number of columns as primary dataset 'd' in the fit(...)
-            The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
- 
-        Returns
-        -------
-            a 2-d numpy array with the same shape as d  
+#### Parameters
+
+`d`:  a numpy 2-d array with same number of columns as primary dataset `d` in the fit(...)
+
+    The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
+
+
+#### Returns
+
+ a 2-d numpy array with the same shape as `d`
          """
         
         if self._mode=="scale":
