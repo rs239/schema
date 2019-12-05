@@ -16,9 +16,22 @@ import sklearn.decomposition, sklearn.preprocessing, sklearn.linear_model, sklea
 import cvxopt
 
 
-schema_loglevel = logging.WARNING
+schema_loglevel = logging.INFO #WARNING
 
 
+def schema_debug(*args, **kwargs):
+    if schema_loglevel <= logging.DEBUG: print("DEBUG: ", *args, **kwargs)
+
+def schema_info(*args, **kwargs):
+    if schema_loglevel <= logging.INFO: print("INFO: ", *args, **kwargs)
+
+def schema_warning(*args, **kwargs):
+    if schema_loglevel <= logging.WARNING: print("WARNING: ", *args, **kwargs)
+
+def schema_error(*args, **kwargs):
+    if schema_loglevel <= logging.ERROR: print("ERROR: ", *args, **kwargs)
+
+    
 ########## for maintenance ###################
 # def noop(*args, **kwargs):
 #     pass
@@ -362,7 +375,7 @@ Given a dataset `d`, apply the fitted transform to it
         # z_dg = z-scored version of dg
         ##############################
         
-        logging.info ("Flag 232.12 ", len(G), G[0][0].shape, G[0][1], G[0][2])
+        schema_info ("Flag 232.12 ", len(G), G[0][0].shape, G[0][1], G[0][2])
         gamma_gs_are_None = True
         for i,g in enumerate(G):
             g_val, g_type, gamma_g = g
@@ -418,7 +431,7 @@ Given a dataset `d`, apply the fitted transform to it
             cr = (np.corrcoef(d0_orig, d0))[0,1]
             if cr<0:
                 # it's an error if you specify a d0 such that corr( pairwisedist(d), pairwise(d0)) is negative to begin with
-                logging.error("d0_dist_transform inverts the correlation structure {0}.".format(cr))
+                schema_error("d0_dist_transform inverts the correlation structure {0}.".format(cr))
                 raise ValueError("""d0_dist_transform inverts the correlation structure. Aborting...
                                     It's an error if you specify a d0 such that corr( pairwisedist(d), pairwise(d0)) is negative to begin with""")
             self._params["d0_orig_transformed_corr"] = cr
@@ -426,7 +439,7 @@ Given a dataset `d`, apply the fitted transform to it
             
         z_d0  = (d0 - d0.mean())/d0.std()
 
-        logging.info("Flag 2090.20 Initial corr to d0", np.corrcoef(uv_dist_centered.sum(axis=1), z_d0))
+        schema_info("Flag 2090.20 Initial corr to d0", np.corrcoef(uv_dist_centered.sum(axis=1), z_d0))
         
         
         l_z_dg = []
@@ -438,12 +451,13 @@ Given a dataset `d`, apply the fitted transform to it
             else:
                 f_dist_dg = None
 
-            logging.info ("Flag 201.80 ", g_val.shape, g_type, gamma_g, f_dist_dg)
+            schema_info ("Flag 201.80 ", g_val.shape, g_type, gamma_g, f_dist_dg)
             
             if g_type == "categorical":
                 dg = 1.0*( g_val[i_u] != g_val[i_v]) #1.0*( g_val[i_u].toarray() != g_val[i_v].toarray())
             elif g_type == "feature_vector":
-                dg = ((g_val[i_u].astype(np.float64) - g_val[i_v].astype(np.float64))**2).sum(axis=1) 
+                print (g_val[i_u].shape, g_val[i_v].shape)
+                dg = np.ravel(np.sum(np.power(g_val[i_u].astype(np.float64) - g_val[i_v].astype(np.float64),2), axis=1))
             else:  #numeric
                 dg = (g_val[i_u].astype(np.float64) - g_val[i_v].astype(np.float64))**2   #(g_val[i_u].toarray() - g_val[i_v].toarray())**2            
 
@@ -456,11 +470,11 @@ Given a dataset `d`, apply the fitted transform to it
                 
             l_z_dg.append(z_dg)
 
-        logging.info ("Flag 201.99 ", uv_dist_centered.shape, z_d0.shape, len(l_z_dg), l_z_dg[0].shape)
-        logging.info ("Flag 201.991 ", uv_dist_centered.mean(axis=0))
-        logging.info ("Flag 201.992 ", uv_dist_centered.std(axis=0))
-        logging.info ("Flag 201.993 ", z_d0[:10], z_d0.mean(), z_d0.std())
-        logging.info ("Flag 201.994 ", l_z_dg[0][:10], l_z_dg[0].mean(), l_z_dg[0].std())
+        schema_info ("Flag 201.99 ", uv_dist_centered.shape, z_d0.shape, len(l_z_dg), l_z_dg[0].shape)
+        schema_info ("Flag 201.991 ", uv_dist_centered.mean(axis=0))
+        schema_info ("Flag 201.992 ", uv_dist_centered.std(axis=0))
+        schema_info ("Flag 201.993 ", z_d0[:10], z_d0.mean(), z_d0.std())
+        schema_info ("Flag 201.994 ", l_z_dg[0][:10], l_z_dg[0].mean(), l_z_dg[0].std())
         return (uv_dist_centered, z_d0, l_z_dg)
 
 
@@ -526,7 +540,7 @@ Given a dataset `d`, apply the fitted transform to it
         h[-1] = -alpha*h1
         
         
-        logging.debug("Flag 543.70 ", P1.shape, q1.shape, g1.shape, h1, nPointPairs, lambda1 , alpha, beta, P.size, q.size, G0.shape, G.size, h.size) #K, P.size, q.size, G.size, h.size)
+        schema_debug("Flag 543.70 ", P1.shape, q1.shape, g1.shape, h1, nPointPairs, lambda1 , alpha, beta, P.size, q.size, G0.shape, G.size, h.size) #K, P.size, q.size, G.size, h.size)
         sol=solvers.qp(P, q, G, h)
         solvers.options["show_progress"] = True
 
@@ -553,7 +567,7 @@ Given a dataset `d`, apply the fitted transform to it
     def _doQPiterations(self, P1, q1, g1, h1, nPointPairs, max_w_wt, min_desired_oldnew_corr):
         solutionList = []
 
-        if schema_loglevel <= logging.INFO: print('Progress bar (each dot is 10%): ', end='', flush=True)
+        schema_info('Progress bar (each dot is 10%): ', end='', flush=True)
 
         alpha = 1.0  #start from one (i.e. no limit on numerator and make it bigger)
         while alpha > 1e-5:
@@ -563,14 +577,14 @@ Given a dataset `d`, apply the fitted transform to it
                 solutionList.append((-soln["objval"], soln, param_settings))
 
             alpha -= 0.1
-            if schema_loglevel <= logging.INFO: print('.', end='', flush=True)
+            schema_info('.', end='', flush=True)
         try:
             solutionList.sort(key=lambda v: v[0]) #find the highest score                
 
-            if schema_loglevel <= logging.INFO: print(' Done\n', end='', flush=True)
+            schema_info(' Done\n', end='', flush=True)
             return (solutionList[0][1], solutionList[0][2])
         except:
-            if schema_loglevel <= logging.INFO: print(' Done\n', end='', flush=True)
+            schema_info(' Done\n', end='', flush=True)
             #raise
             return (None, {})
 
@@ -585,8 +599,8 @@ Given a dataset `d`, apply the fitted transform to it
             try:
                 soln, param_settings = self._iterateQPLevel2(P1, q1, g1, h1, nPointPairs, max_w_wt, alpha, beta)
             except Exception as e:
-                logging.warning ("Flag 110.50 crashed in _iterateQPLevel2. Trying to continue...", P1.size, q1.size, g1.size, max_w_wt, alpha, beta)
-                if schema_loglevel <= logging.INFO: print (e)
+                schema_warning ("Flag 110.50 crashed in _iterateQPLevel2. Trying to continue...", P1.size, q1.size, g1.size, max_w_wt, alpha, beta)
+                schema_info(e)
                 beta *= 0.5
                 continue
             
@@ -598,7 +612,7 @@ Given a dataset `d`, apply the fitted transform to it
         try:
             solutionList.sort(key=lambda v: v[0]) #find the highest score
 
-            logging.info("Flag 110.60 beta: ", "NONE" if not solutionList else self._summarizeSoln(solutionList[0][1], solutionList[0][2]))
+            schema_info("Flag 110.60 beta: ", "NONE" if not solutionList else self._summarizeSoln(solutionList[0][1], solutionList[0][2]))
             return (solutionList[0][1], solutionList[0][2])
         except:
             #raise
@@ -641,7 +655,7 @@ Given a dataset `d`, apply the fitted transform to it
                 solLo = solMid
 
             niter += 1
-            logging.debug ("Flag 42.113 ", niter, lo, mid, hi, max(solLo["w"]), min(solLo["w"]), max(solHi["w"]), min(solHi["w"]), scalerangeMid)
+            schema_debug ("Flag 42.113 ", niter, lo, mid, hi, max(solLo["w"]), min(solLo["w"]), max(solHi["w"]), min(solHi["w"]), scalerangeMid)
         return solLo, {"lambda": 1/lo, "alpha": alpha, "beta": beta}        
 
     
@@ -655,7 +669,7 @@ Given a dataset `d`, apply the fitted transform to it
 
         N = dx.shape[0]
 
-        logging.info ("Flag 102.30 ", dx.shape, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
+        schema_info ("Flag 102.30 ", dx.shape, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
         
         G = []
         for i in range(len(secondary_data_val_list)):
@@ -669,16 +683,19 @@ Given a dataset `d`, apply the fitted transform to it
             for i, gx in enumerate(G):
                 G[i] = (gx[0][idx], gx[1], gx[2])
 
-                
+
+        schema_info ("Flag 102.35 ", dx.shape, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
         uv_dist_centered, z_d0, l_z_dg = self._getDistances(dx, d0, G, nPointPairs)
+        schema_info ("Flag 102.36 ", uv_dist_centered.shape, z_d0.shape, len(l_z_dg))
         P1, q1, g1, h1, nPointPairs1 = self._prepareQPterms(uv_dist_centered, z_d0, l_z_dg)
+        schema_info ("Flag 102.37 ")
         
         soln, free_params = self._doQPiterations(P1, q1, g1, h1, nPointPairs1, w_max_to_avg, min_desired_corr)
         
         if soln is None:
             raise Exception("Couldn't find valid solution to QP")
         
-        if schema_loglevel <= logging.INFO: print ("Final solution: ", self._summarizeSoln(soln, free_params))
+        schema_info ("Final solution: ", self._summarizeSoln(soln, free_params))
         return soln["w"].ravel(), self._summarizeSoln(soln, free_params)
 
     
