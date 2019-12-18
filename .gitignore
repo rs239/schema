@@ -15,3 +15,5 @@ plots*
 target*
 temp*
 setup.py
+*.out
+.ipynb_checkpoints/
