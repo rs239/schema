@@ -321,7 +321,8 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
             
             if i==0:
                 cells = cells.set_index('sample')
-                adata = AnnData(X = logcpm(data), obs = cells.copy(deep=True), var = mdlty.copy(deep=True))
+                #adata = AnnData(X = logcpm(data), obs = cells.copy(deep=True), var = mdlty.copy(deep=True))
+                adata = AnnData(X = data, obs = cells.copy(deep=True), var = mdlty.copy(deep=True))
                 adata.uns["names"] = []
 
                 print ("Flag 324.22 got X {0} obs {1} var {2} uns {3}".format( adata.X.shape, adata.obs.shape, adata.var.shape, list(adata.uns.keys())))
@@ -329,7 +330,8 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
                 for c in cells.columns:
                     if c in adata.obs.columns: continue
                     adata.obs[c] = cells[c]
-                adata.uns[nm + ".X"] = logcpm(data)
+                #adata.uns[nm + ".X"] = logcpm(data)
+                adata.uns[nm + ".X"] = data
                 adata.uns[nm + ".var"] = mdlty.copy(deep=True)
                 adata.uns[nm + ".var.index"] = list(mdlty.index) #scanpy is annoying, it'll convert these to numpy matrices when writing
                 adata.uns[nm + ".var.columns"] = list(mdlty.columns)
@@ -337,7 +339,7 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
             adata.obs[typestr + "_log_sumcounts"] = np.log2(np.sum(data,axis=1)+1)
             adata.uns["names"].append(nm)
             adata.uns[nm + ".type"] = typestr
-                       
+            adata.var_names_make_unique()
             print ("Flag 324.25 got X {0} obs {1} var {2} uns {3}".format( adata.X.shape, adata.obs.shape, adata.var.shape, list(adata.uns.keys())))
                    
         return adata
@@ -360,6 +362,75 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
                     if c in ["chr"]:
                         adata.uns[k][c] = adata.uns[k][c].astype(str)
         return adata
+
+    @staticmethod
+    def preprocessAnnData(adata, do_logcpm=True, valid_gene_minobs=0, valid_peak_minobs=0, valid_cell_mingenes=0):
+        """
+Preprocess sci-CAR data to remove too-sparse genes, peaks and cells. Also, convert to log(counts_per_million(..)) format
+
+#### Parameters
+
+`adata`: `AnnData`
+
+    The dataframe containing Read as a dataframe containing Ensemble IDs ("ensembl_id"), TSS start/end etc. 
+
+
+`do_logcpm`: `bool` 
+
+    Convert peak and gene expression counts to log2 counts-per-million
+
+
+`valid_gene_minobs`: `int`
+
+    Only keep genes that show up in at least valid_gene_minobs cells
+
+
+`valid_aux_minobs`: `int`
+
+    Only keep peaks that show up in at least valid_peak_minobs cells
+
+
+`valid_cell_mingenes`: `int`
+
+    Only keep cells that have at least valid_cell_mingenes genes
+
+#### Returns
+
+copy of filtered anndata
+         """
+
+        valid_genes =  np.ravel((adata.X  > 0).sum(axis=0)) >= valid_gene_minobs
+        adata = adata[:, valid_genes]
+        
+        valid_cells = np.ravel((adata.X > 0).sum(axis=1)) >= valid_cell_mingenes
+        adata = adata[valid_cells, :]
+        
+        if "atac.X" in adata.uns:
+            adata.uns["atac.X"] = adata.uns["atac.X"][ valid_cells, :]
+            
+            valid_peaks = np.ravel((adata.uns["atac.X"] > 0).sum(axis=0)) >= valid_peak_minobs
+            adata.uns["atac.X"] = adata.uns["atac.X"][:, valid_peaks]
+            adata.uns["atac.var"] = adata.uns["atac.var"][valid_peaks]
+            adata.uns["atac.var.index"] = adata.uns["atac.var.index"][valid_peaks]
+            
+        adata2 = adata.copy()
+         
+        def logcpm(dx):
+            libsizes = 1e-6 + np.sum(dx, axis=1)
+            print ("Flag 3343.10 ",  libsizes.shape, libsizes.sum())
+            dxout = dx #copy.deepcopy(dx)
+            for i in range(dxout.shape[0]):
+                i0,i1 = dxout.indptr[i], dxout.indptr[i+1]
+                dxout.data[i0:i1] = np.log2(dxout.data[i0:i1]*1e6/libsizes[i] + 1)
+                #for ind in range(i0,i1):
+                #    dxout.data[ind] = np.log2( dxout.data[ind]*1e6/libsizes[i] + 1)
+            return dxout
+                 
+        adata2.X = logcpm(adata2.X)
+        if  "atac.X" in adata.uns:
+            adata2.uns["atac.X"] = logcpm(adata2.uns["atac.X"])
+
+        return adata2
 
 
     

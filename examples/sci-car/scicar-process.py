@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 
 
-def write_h5_files():
+def read_raw_files_and_write_h5_files():
     def f_atac1(w):
         try:
             v = w["chr"]
@@ -32,6 +32,7 @@ def write_h5_files():
         except:
             return False
 
+    import utils
     adata1 = utils.SciCar.loadData('/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car',
                                 [('rna' ,'gene','GSM3271040', lambda v: v["cell_name"]=="A549", lambda v: v["gene_type"]=="protein_coding"),
                                  ('atac','peak','GSM3271041', lambda v: v["group"][:4]=="A549", f_atac1),
@@ -42,8 +43,8 @@ def write_h5_files():
                                  ('atac','peak','GSM3271045', None, f_atac2),
                                 ],
                                 "/afs/csail.mit.edu/u/r/rsingh/work/refdata/mm10_mapped.tsv")
-    adata1.write("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-    adata2.write("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata2.h5ad")
+    adata1.write("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1x.h5ad")
+    adata2.write("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata2x.h5ad")
 
     
 def mprun_geneXfpeak_mtx(adata, n_jobs=8, style=1):
@@ -423,7 +424,7 @@ def f_mode81x_helper(g2tad, gene_sharedtad,  gene_set, mode):
     
 #################################################################################
 
-if __name__ == "__main__":
+if __name__ == "__mainxxx__":
 
     sys.path.append(os.path.join(sys.path[0],'../../schema'))
     print (sys.path)
