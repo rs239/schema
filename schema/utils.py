@@ -155,7 +155,156 @@ based on https://github.com/berenslab/rna-seq-tsne
 
 
 
+def fast_csv_read(filename, *args, **kwargs):
+    """
+fast csv read. Like sparse_read_csv but returns a dense Pandas DF
+    """
+    
+    small_chunk = pd.read_csv(filename, nrows=50)
+    if small_chunk.index[0] == 0:
+        coltypes = dict(enumerate([a.name for a in small_chunk.dtypes.values]))
+        return pd.read_csv(filename, dtype=coltypes, *args, **kwargs)
+    else:
+        coltypes = dict((i+1,k) for i,k in enumerate([a.name for a in small_chunk.dtypes.values]))
+        coltypes[0] = str
+        return pd.read_csv(filename, index_col=0, dtype=coltypes, *args, **kwargs)
 
+
+    
+
+class SlideSeq:
+    """
+Utility class for Slide-Seq (Rodriques et al., Science 2019) data. Most methods are static.
+    """
+    
+    @staticmethod
+    def loadRawData(datadir, puckid, num_nmf_factors=100):
+        """
+Load data for a particular puck, clean it up a bit and store as AnnData. For later use, also performs a NMF and stores those.
+Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
+        """
+        from sklearn.preprocessing import StandardScaler
+        
+        puckdir = "{0}/Puck_{1}".format(datadir, puckid)
+        beadmapdir = max(glob.glob("{0}/BeadMapping_*-*_????".format(puckdir)), key=os.path.getctime)
+        print("Flag 314.001 ", beadmapdir)
+        
+        # gene exp
+        gexp_file = "{0}/MappedDGEForR.csv".format(beadmapdir)
+        dge = fast_csv_read(gexp_file, header = 0, index_col = 0)
+        #  for faster testing runs, use below, it has just the first 500 cols of the gexp_file 
+        ## dge = fast_csv_read("/tmp/a1_dge.csv", header = 0, index_col = 0)
+        dge = dge.T
+        dge = dge.reset_index()
+        dge = dge.rename(columns={'index':'barcode'})
+        print("Flag 314.010 ", dge.shape, dge.columns)
+        
+        # spatial location
+        beadloc_file = "{0}/BeadLocationsForR.csv".format(beadmapdir)
+        coords = fast_csv_read(beadloc_file, header = 0)
+        coords = coords.rename(columns={'Barcodes':'barcode'})
+        coords = coords.rename(columns={'barcodes':'barcode'})
+        print("Flag 314.020 ", coords.shape, coords.columns)
+        
+        # Slide-Seq cluster assignments
+        atlas_clusters_file = "{0}/AnalogizerClusterAssignments.csv".format(beadmapdir)
+        clstrs = pd.read_csv(atlas_clusters_file, index_col=None)
+        print (clstrs.columns)
+        assert list(clstrs.columns) == ["Var1","x"]
+        clstrs.columns = ["barcode","atlas_cluster"]
+        clstrs = clstrs.set_index("barcode")
+        print("Flag 314.030 ", clstrs.shape, clstrs.columns)
+        
+        df_merged = dge.merge(coords, right_on='barcode', left_on='barcode')
+        df_merged = df_merged[ df_merged.barcode.isin(clstrs.index)]
+        print("Flag 314.040 ", df_merged.shape, df_merged.columns)
+            
+        # remove sparse gene exp
+        counts = df_merged.drop(['xcoord', 'ycoord'], axis=1)
+        counts2 = counts.copy(deep=True)
+        counts2 = counts2.set_index('barcode') #.drop('barcode',axis=1)
+        counts2_okcols = counts2.sum(axis=0) > 0
+        counts2 = counts2.loc[:, counts2_okcols]
+        UMI_threshold = 5
+        counts2_umis = counts2.sum(axis=1).values
+        counts2 = counts2.loc[counts2_umis > UMI_threshold,:]
+        print("Flag 314.0552 ", counts.shape, counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
+        
+        #slide-seq authors normalize to have sum=1 across each bead, rather than 1e6
+        cval = counts2_umis[counts2_umis>UMI_threshold]
+        counts2 = counts2.divide(cval, axis=0) #np.true_divide(counts2, counts2_umis[:,None])
+        #counts2 = np.true_divide(counts2, counts2_umis[:,None])
+                
+        # this is also a little unusual, but I'm following their practice
+        counts2.iloc[:,:] = StandardScaler(with_mean=False).fit_transform(counts2.values)
+        print("Flag 314.0553 ", counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
+        
+        coords2 = df_merged.loc[ df_merged.barcode.isin(counts2.index), ["barcode","xcoord","ycoord"]].copy(deep=True)
+        coords2 = coords2.set_index('barcode') #.drop('barcode', axis=1)
+        print("Flag 314.0555 ", coords2.shape,isinstance(coords2, pd.DataFrame))
+
+        ok_barcodes = set(coords2.index) & set(counts2.index) & set(clstrs.index)
+        print("Flag 314.060 ", coords2.shape, counts2.shape, clstrs.shape, len(ok_barcodes))
+                
+        ## do NMF
+        K1 = num_nmf_factors
+        listK1 = ["P{}".format(i+1) for i in range(K1)]
+        random_state = 17 #for repeatability, a fixed value
+        model1 = sklearn.decomposition.NMF(n_components= K1, init='random', random_state = random_state, alpha = 0, l1_ratio = 0)
+        Ho = model1.fit_transform(counts2.values)
+        Wo = model1.components_
+
+        print("Flag 314.070 ", Ho.shape, Wo.shape)
+        
+        Ho_norm = StandardScaler(with_mean=False).fit_transform(Ho)
+        Ho_norm = pd.DataFrame(Ho_norm)
+        Ho_norm.index = counts2.index
+        Ho_norm.columns = listK1
+        Wo = pd.DataFrame(Wo)
+        Wo.index = listK1; Wo.index.name = "Factor"
+        Wo.columns = list(counts2.columns)
+
+        Ho_norm = Ho_norm[Ho_norm.index.isin(ok_barcodes)]
+        Ho_norm = Ho_norm / Ho_norm.std(axis=0)
+
+        print("Flag 314.080 ", Ho_norm.shape, Wo.shape)
+        
+        genexp = counts2[ counts2.index.isin(ok_barcodes)].sort_index()
+        beadloc = coords2[ coords2.index.isin(ok_barcodes)].sort_index()
+        clstrs = clstrs[ clstrs.index.isin(ok_barcodes)].sort_index()
+        Ho_norm = Ho_norm.sort_index()
+
+        print("Flag 314.090 ", genexp.shape, beadloc.shape, clstrs.shape, Ho_norm.shape, genexp.index[:5], beadloc.index[:5])
+
+        beadloc["atlas_cluster"] = clstrs["atlas_cluster"]
+        
+        if "AnnData" not in dir():
+            from anndata import AnnData
+
+        adata = AnnData(X = genexp.values, obs = beadloc, uns = {"Ho": Ho_norm, "Ho.index": list(Ho_norm.index), "Ho.columns": list(Ho_norm.columns),
+                                                                 "Wo": Wo, "Wo.index": list(Wo.index), "Wo.columns": list(Wo.columns)})
+        return adata
+
+
+
+    @staticmethod
+    def loadAnnData(fpath):
+        """
+Import a h5ad file. Also deals with some scanpy weirdness when loading dataframes in the .uns slot
+        """
+        
+        import matplotlib
+        matplotlib.use("agg") #otherwise scanpy tries to use tkinter which has issues importing
+        import scanpy as sc 
+
+        adata = sc.read(fpath)
+        for k in ["Ho","Wo"]:
+            adata.uns[k] = pd.DataFrame(adata.uns[k], index=adata.uns[k + ".index"], columns= adata.uns[k + ".columns"])
+        return adata
+
+    
+    
+        
 class SciCar:
     """
 Utility class for Sci-Car (Cao et al., Science 2018) data. Most methods are static. 
@@ -902,3 +1051,72 @@ a   matrix of shape adata.var.shape[0] X len(peak_func_list)
         return (g2p, g2p_wts)
 
 
+
+
+
+
+def cmpSpearmanVsPearson(d1, type1="numeric", d2=None, type2=None, nPointPairs=2000000, nRuns=1):
+
+    N, K1 = d1.shape[0], d1.shape[1]
+    K2 = 0
+    if d2 is not None:
+        assert d2.shape[0] == N
+        K2 = d2.shape[1]
+        
+    if nPointPairs is None: assert nRuns==1
+
+    print ("Flag 676.10 ", N, K1, K2, nPointPairs, type1, type2)
+    
+    corrL = []
+
+    for nr in range(nRuns):
+        if nPointPairs is not None:
+            j_u = np.random.randint(0, N, int(3*nPointPairs))
+            j_v = np.random.randint(0, N, int(3*nPointPairs))
+            valid = j_u < j_v  #get rid of potential duplicates (x1,x2) and (x2,x1) as well as (x1,x1)
+            i_u = (j_u[valid])[:nPointPairs]
+            i_v = (j_v[valid])[:nPointPairs]
+        else:
+            x = pd.DataFrame.from_records(list(itertools.combinations(range(N),2)), columns=["u","v"])
+            x = x[x.u < x.v]
+            i_u = x.u.values
+            i_v = x.v.values
+
+        print ("Flag 676.30 ", i_u.shape, i_v.shape, nr)
+
+        dL = []
+        for g_val, g_type in [(d1, type1), (d2, type2)]:
+            if g_val is None:
+                dL.append(None)
+                continue
+
+            dg = []
+            for ii in np.split(np.arange(i_u.shape[0]), int(i_u.shape[0]/2000)):
+                ii_u = i_u[ii]
+                ii_v = i_v[ii]
+
+                if g_type == "categorical":
+                    dgx = 1.0*( g_val[ii_u] != g_val[ii_v]) #1.0*( g_val[i_u].toarray() != g_val[i_v].toarray())
+                elif g_type == "feature_vector":
+                    print (g_val[ii_u].shape, g_val[ii_v].shape)
+                    dgx = np.ravel(np.sum(np.power(g_val[ii_u].astype(np.float64) - g_val[ii_v].astype(np.float64),2), axis=1))
+                else:  #numeric
+                    dgx = (g_val[ii_u].astype(np.float64) - g_val[ii_v].astype(np.float64))**2   #(g_val[i_u].toarray() - g_val[i_v].toarray
+                dg.extend(dgx)
+            print ("Flag 676.50 ", g_type, len(dg))
+            dL.append(np.array(dg))
+
+        print ("Flag 676.60 ")
+        dg1, dg2 = dL[0], dL[1]
+        
+        if d2 is None:
+            rp = scipy.stats.pearsonr(dg1, scipy.stats.rankdata(dg1))[0]
+            rs = None
+        else:
+            rp = scipy.stats.pearsonr(dg1, dg2)[0]
+            rs = scipy.stats.spearmanr(dg1, dg2)[0]
+
+        print ("Flag 676.80 ", rp, rs)
+        corrL.append( (rp,rs))
+
+    return corrL

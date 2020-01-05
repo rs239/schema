@@ -162,6 +162,7 @@ class SchemaQP:
 
         self._mode = mode
         self._w_max_to_avg = w_max_to_avg
+        print("Flag 456.10  ", self._w_max_to_avg)
         self._min_desired_corr = min_desired_corr
         self._std_scaler = None
         self._decomp_mdl = None
