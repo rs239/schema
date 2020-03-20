@@ -38,7 +38,12 @@ def computeKernelDensityGranuleCells(adata1, kd_fit_granule_only=True, kd_bw=125
 
 
 def checkMaxFeasibleCorr(D, d0, g, tg, wg):
-    import schema_qp
+    try:
+        sys.path.append(os.path.join(sys.path[0],'../../schema'))
+        import schema_qp
+    except:
+        from schema import schema_qp
+    
     for thresh in [0.30, 0.275, 0.25, 0.225, 0.20, 0.15, 0.10, 0.075, 0.06, 0.05, 0.04, 0.03, 0.025, 0.02, 0.015, 0.01]:
         print ("STARTING TRY OF ", thresh)
         try:
@@ -53,7 +58,12 @@ def checkMaxFeasibleCorr(D, d0, g, tg, wg):
 
 
 def runSchemaGranuleCellDensity(D, d0, gIn, tgIn, wgIn, min_corr1, min_corr2):
-    import schema_qp
+    try:
+        sys.path.append(os.path.join(sys.path[0],'../../schema'))
+        import schema_qp
+    except:
+        from schema import schema_qp
+    
     f_linear = lambda v:v
     ret_val = {}
 
@@ -204,8 +214,8 @@ def generatePlotGranuleCellDensity(d3, cell_loadings):
 
 
     ax = fig.add_subplot(gs[:,2:4])
-    #im = ax.scatter(coords[clstr==1,0],coords[clstr==1,1],c=2*d3["kd"].values[clstr==1],cmap="seismic",s=1)
-    im = ax.scatter(coords[:,0],coords[:,1],c=2*d3["kd"].values,cmap="seismic",s=1)
+    im = ax.scatter(coords[clstr==1,0],coords[clstr==1,1],c=2*d3["kd"].values[clstr==1],cmap="seismic",s=1)
+    #im = ax.scatter(coords[:,0],coords[:,1],c=2*d3["kd"].values,cmap="seismic",s=1)
     ax.set_aspect('equal')
     ax.axis('off')
     from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -265,21 +275,24 @@ def processGranuleCellDensitySchema(adata1, extra_args):
 
 
 
-
-def doSchemaCCA_CellScorePlot(d3, cca_x_scores, cell_loadings):
+def doSchemaCCA_CellScorePlot2(d3, cca_x_scores, cell_loadings):
     clstrs = d3["atlas_cluster"]
+    kd = d3["kd"]
 
     cca_sgn = np.sign(scipy.stats.pearsonr(d3["kd"],cca_x_scores)[0]) #flip signs if needed
 
     R = {}
-    for desc,v in [("ccax", cca_sgn*cca_x_scores), ("schema", cell_loadings), ("kd", d3["kd"])]:
+    for desc,v in [("ccax", cca_sgn*cca_x_scores), ("schema", cell_loadings)]:
         vr = scipy.stats.rankdata(v)
         vr = vr/vr.max()
         l = []
         for t in np.linspace(0,1,100)[:-1]:
             cx = clstrs[vr >=t ]
-            l.append(np.sum(cx==1)/(1e-12+ len(cx)))
-        R[desc]=np.array(l)
+            granule_frac = (np.sum(cx==1)/(1e-12+ len(cx)))
+            cx2 = kd[ vr >= t]
+            kd_val = np.median(cx2)
+            l.append((granule_frac, kd_val))
+        R[desc]= list(zip(*l))
 
     import matplotlib.pyplot as plt
     plt.style.use('seaborn-paper')
@@ -287,12 +300,12 @@ def doSchemaCCA_CellScorePlot(d3, cca_x_scores, cell_loadings):
 
     fig = plt.figure(dpi=300) #(2*6.48,2*2.16))
 
-    plt.plot(np.linspace(0,100,100)[:-1], R["kd"], lw=4, c="black", figure=fig)
-    plt.plot(np.linspace(0,100,100)[:-1], R["ccax"], lw=2, c="red", figure=fig)
-    plt.plot(np.linspace(0,100,100)[:-1], R["schema"], lw=2, c="blue", figure=fig)
-    fig.legend("Density score (fitted on all cells),CCA fit,Schema fit".split(","))
-    plt.xlabel("Bead Rank: Percentile Cut-off", figure=fig)
-    plt.ylabel("Fraction of Beads labeled as Granule Cells", figure=fig)
+    a = np.linspace(0,1,100)
+    plt.scatter(R["ccax"][0], R["ccax"][1], s=(1+3*a)**2, c="red", figure=fig)
+    plt.scatter(R["schema"][0], R["schema"][1], s=(1+3*a)**2, c="blue", figure=fig)
+    fig.legend("CCA fit,Schema fit".split(","))
+    plt.xlabel("Fraction of Beads labeled as Granule Cells", figure=fig)
+    plt.ylabel("Median Kernel Density Score", figure=fig)
     return fig
 
 
@@ -301,14 +314,17 @@ def doSchemaCCA_CellScorePlot(d3, cca_x_scores, cell_loadings):
 #################################################################################
 
 if __name__ == "__main__":
-    sys.path.append(os.path.join(sys.path[0],'../../schema'))
-    from utils import SlideSeq
+    try:
+        sys.path.append(os.path.join(sys.path[0],'../../schema'))
+        from utils import SlideSeq
+    except:
+        from schema.utils import SlideSeq
 
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", help="which code path to run. see main(..) for details")
-    parser.add_argument("--outdir", help="output directory (can set to '.')", type=str, default="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/slideseq/processed/")
-    parser.add_argument("--outsfx", help="suffix to use when producing output files")
+    parser.add_argument("--outdir", help="output directory (can set to '.')", type=str, default=".")
+    parser.add_argument("--outpfx", help="prefix to use when producing output files")
     parser.add_argument("--style", help="mode-specific interpretation", type=int, default=-1)
     parser.add_argument("--infile", help="input .h5ad file. Default is SlideSeq 180430_1 h5ad")
     parser.add_argument("--njobs", help="number of parallel cores to use", type=int, default=24)
@@ -318,7 +334,7 @@ if __name__ == "__main__":
     
     args = parser.parse_args()
     assert args.mode is not None
-    if args.mode !="raw_data_read": assert args.outsfx is not None
+    if args.mode !="raw_data_read": assert args.outpfx is not None
     if args.infile is None:
         args.infile = "/afs/csail.mit.edu/u/r/rsingh/work/schema/data/slideseq/processed/puck_180430_1.h5ad"
     extra_args = dict([a.split("=") for a in args.extra]) if args.extra else {}
@@ -330,14 +346,20 @@ if __name__ == "__main__":
 
     if args.mode == "schema_kd_granule_cells":
         adata1 = SlideSeq.loadAnnData(args.infile)
-        import schema_qp
+        try:
+            from schema import schema_qp
+        except:
+            sys.path.append(os.path.join(sys.path[0],'../../schema'))
+            import schema_qp
+
         schema_qp.schema_loglevel = logging.WARNING
+        
         fig, d3, schema_ret, min_corr1, min_corr2, scores, cell_loadings = processGranuleCellDensitySchema(adata1, extra_args)
         fig.tight_layout()
-        fig.savefig("{0}_fig-KD.png".format(args.outsfx), dpi=300)
-        fig.savefig("{0}_fig-KD.svg".format(args.outsfx))
+        fig.savefig("{0}_fig-KD.png".format(args.outpfx), dpi=300)
+        fig.savefig("{0}_fig-KD.svg".format(args.outpfx))
         pickle.dump((d3[["xcoord","ycoord","kd","atlas_cluster"]], schema_ret, min_corr1, min_corr2, scores, cell_loadings),
-                    open("{0}_func_output.pkl".format(args.outsfx), "wb"))
+                    open("{0}_func_output.pkl".format(args.outpfx), "wb"))
 
 
     if args.mode == "cca_kd_granule_cells":
@@ -349,12 +371,52 @@ if __name__ == "__main__":
         from sklearn.cross_decomposition import CCA
         cca = CCA(1)
         cca.fit(adata1.X, adata1.obs["kd"])            
-        fig = generatePlotGranuleCellDensity(adata1.obs, cca.x_scores_[:,0])
+        cca_sgn = np.sign(scipy.stats.pearsonr(adata1.obs["kd"], cca.x_scores_[:,0])[0]) #flip signs if needed
+        fig = generatePlotGranuleCellDensity(adata1.obs, cca_sgn*cca.x_scores_[:,0])
         fig.tight_layout()
-        fig.savefig("{0}_fig-CCA.png".format(args.outsfx), dpi=300)
-        fig.savefig("{0}_fig-CCA.svg".format(args.outsfx))
+        fig.savefig("{0}_fig-CCA.png".format(args.outpfx), dpi=300)
+        fig.savefig("{0}_fig-CCA.svg".format(args.outpfx))
         pickle.dump((adata1.obs[["xcoord","ycoord","kd","atlas_cluster"]], cca.x_scores_[:,0], cca.x_loadings_[:,0], cca.y_scores_[:,0]),
-                    open("{0}_CCA_output.pkl".format(args.outsfx), "wb"))
+                    open("{0}_CCA_output.pkl".format(args.outpfx), "wb"))
+
+
+
+    if args.mode == "cca2step_kd_granule_cells":
+        adata1 = SlideSeq.loadAnnData(args.infile)
+        if "kd" not in adata1.obs.columns:
+            adata1 = computeKernelDensityGranuleCells(adata1,
+                                                      kd_fit_granule_only = int(extra_args.get("kd_fit_granule_only",1))==1,
+                                                      kd_bw = float(extra_args.get("kd_bw",125)))
+
+        #### adata1 = adata1[:,:40] ## FOR TESTING
+
+        from sklearn.cross_decomposition import CCA
+        cca1 = CCA(1)
+        cca1.fit(adata1.X, adata1.obs["kd"])           
+        cca1_sgn = np.sign(scipy.stats.pearsonr(adata1.obs["kd"],cca1.x_scores_[:,0])[0]) #flip signs if needed
+
+        cca2 = CCA(1)
+        cca2.fit(adata1.X, 1*(adata1.obs["atlas_cluster"]==1))            
+        cca2_sgn = np.sign(scipy.stats.pearsonr(1*(adata1.obs["atlas_cluster"]==1),cca2.x_scores_[:,0])[0]) #flip signs if needed
+
+        score1 = cca1_sgn*cca1.x_scores_[:,0]
+        score2 = cca2_sgn*cca2.x_scores_[:,0]
+        scorex = 0.5 * (score1/np.std(score1)  + score2/np.std(score2))
+
+        scorex = scorex/np.sqrt(np.sum(scorex**2))
+
+        loadings = np.matmul(np.transpose(adata1.X), scorex)
+        intcpt = 0
+
+        print("Flag 2320.01 ", scorex.shape, adata1.X.shape, loadings.shape, describe(scorex), describe(loadings))
+
+
+        fig = generatePlotGranuleCellDensity(adata1.obs, scorex)
+        fig.tight_layout()
+        fig.savefig("{0}_fig-CCA2STEP.png".format(args.outpfx), dpi=300)
+        fig.savefig("{0}_fig-CCA2STEP.svg".format(args.outpfx))
+        pickle.dump((adata1.obs[["xcoord","ycoord","kd","atlas_cluster"]], scorex, loadings, intcpt),
+                    open("{0}_CCA2STEP_output.pkl".format(args.outpfx), "wb"))
 
 
 
@@ -363,9 +425,10 @@ if __name__ == "__main__":
         schema_pkl_file = extra_args["schema_pkl_file"]
         cca_d3, cca_x_scores, _ , _  = pickle.load(open(cca_pkl_file,"rb"))
         schema_d3,  _, _, _, _, cell_loadings = pickle.load(open(schema_pkl_file,"rb"))
-        fig = doSchemaCCA_CellScorePlot(cca_d3, cca_x_scores, cell_loadings)
-        fig.savefig("{0}_fig-Schema-CCA-cmp.png".format(args.outsfx), dpi=300)
-        fig.savefig("{0}_fig-Schema-CCA-cmp.svg".format(args.outsfx))
+        #fig = doSchemaCCA_CellScorePlot(cca_d3, cca_x_scores, cell_loadings)
+        fig = doSchemaCCA_CellScorePlot2(cca_d3, cca_x_scores, cell_loadings)
+        fig.savefig("{0}_fig-Schema-CCA-cmp.png".format(args.outpfx), dpi=300)
+        fig.savefig("{0}_fig-Schema-CCA-cmp.svg".format(args.outpfx))
         
 
 
@@ -411,5 +474,5 @@ if __name__ == "__main__":
             g.append(k)
             s.append(v)
 
-        pd.DataFrame.from_dict({"gene": g, "rank": s}).to_csv("{0}_generankings_dtype-{1}.csv".format(args.outsfx, data_type), index=False)
+        pd.DataFrame.from_dict({"gene": g, "rank": s}).to_csv("{0}_generankings_dtype-{1}.csv".format(args.outpfx, data_type), index=False)
         

@@ -24,85 +24,38 @@ def read_raw_files_and_write_h5_files(outdir):
         except:
             return False
 
-    def f_atac2(w):
-        try:
-            v = w["chr"]
-            assert v[:3]=="chr" and ("_" not in v) and (v[3] in ['X','Y'] or int(v[3:])<=22) 
-            return True
-        except:
-            return False
-
     import utils
     adata1 = utils.SciCar.loadData('/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car',
                                 [('rna' ,'gene','GSM3271040', lambda v: v["cell_name"]=="A549", lambda v: v["gene_type"]=="protein_coding"),
                                  ('atac','peak','GSM3271041', lambda v: v["group"][:4]=="A549", f_atac1),
                                 ],
                                    "/afs/csail.mit.edu/u/r/rsingh/work/refdata/hg19_mapped.tsv")
-    adata2 = utils.SciCar.loadData('/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car',
-                                [('rna' ,'gene','GSM3271044', None, lambda v: v["gene_type"]=="protein_coding"),
-                                 ('atac','peak','GSM3271045', None, f_atac2),
-                                ],
-                                "/afs/csail.mit.edu/u/r/rsingh/work/refdata/mm10_mapped.tsv")
     adata1.write("{0}/adata1x.h5ad".format(outdir))
-    adata2.write("{0}/adata2x.h5ad".format(outdir))
 
     
-def mprun_geneXfpeak_mtx(adata, n_jobs=8, style=1):
+def mprun_geneXfpeak_mtx(adata, n_jobs=8):
     peak_func_list = [a[0] for a in SciCar.fpeak_list_all]
     print (adata.uns.keys(), adata.uns["atac.var"].head(2))
     chr_mapping = SciCar.getChrMapping(adata)
 
-    assert style in [1,2,3]
 
     nPeaks = adata.uns["atac.X"].shape[1]
     l = [list(a) for a in np.array_split(range(nPeaks), 5*n_jobs)]
-    #l = [list(a) for a in np.array_split(range(1000), 5*n_jobs)]
-    #print("Flag 3343.100 ", l)
     pool =  multiprocessing.Pool(processes = n_jobs)
 
-    if style == 1:
-        lx = pool.map(functools.partial(SciCar.computeGeneByFpeakMatrix, 
-                                        adata, peak_func_list, chr_mapping, normalize_distwt= True),
-                      l)
-
-    elif style == 2:
-        lx = pool.map(functools.partial(SciCar.computeGeneByFpeakMatrix, 
-                                        adata, peak_func_list, chr_mapping, normalize_distwt= False),
-                      l)
-
-    elif style == 3:
-        lx = pool.map(functools.partial(SciCar.computeGeneByFpeakMatrix, 
-                                        adata, peak_func_list, chr_mapping, normalize_distwt= False, booleanPeakCounts = True),
-                      l)
+    lx = pool.map(functools.partial(SciCar.computeGeneByFpeakMatrix, 
+                                    adata, peak_func_list, chr_mapping, normalize_distwt= True),
+                  l)
 
 
-    # # lx = []
-    # # for z in l:
-    # #     lx.append(SciCar.computeGeneByFpeakMatrix(adata, peak_func_list, chr_mapping, z))
+    g2p = None
+    for m, _ in lx:
+        if g2p is None:
+            g2p = m
+        else:
+            g2p += m
 
-
-    if style == 1:
-        g2p = None
-        for m, _ in lx:
-            if g2p is None:
-                g2p = m
-            else:
-                g2p += m
-
-        g2p =  g2p * (1e5/nPeaks)
-
-    elif style==2 or style==3:
-        g2p = None
-        g2p_wts = None
-        for m, m_wts in lx:
-            if g2p is None:
-                g2p = m
-                g2p_wts = m_wts
-            else:
-                g2p += m
-                g2p_wts += m_wts
-        g2p =  (g2p / g2p_wts) * (1e5)
-        
+    g2p =  g2p * (1e5/nPeaks)
 
     dx = pd.DataFrame(g2p, index=None)
     dx.columns = [a[1] for a in SciCar.fpeak_list_all]
@@ -114,34 +67,32 @@ def mprun_geneXfpeak_mtx(adata, n_jobs=8, style=1):
 
 
 def f_helper_mprun_schemawts_2(args):
-    ax, dz, dir1, outsfx, min_corr, maxwt, use_first_col, strand, chromosome, gene2fpeak_norm_style = args
-    if use_first_col:
-        dz_cols = dz.columns[:-2]
-        dz_vals = dz.values[:,:-2]
-    else:
-        dz_cols = dz.columns[1:-2]
-        dz_vals = dz.values[:,1:-2]
+    ax, dz, dir1, outsfx, min_corr, maxwt, strand, chromosome, adata_norm_style = args
+
+    if adata_norm_style == 1:
+        ax_l2norm = np.sqrt(np.sum(ax**2, axis=1))
+        ax = ax.copy() / (1e-12 + ax_l2norm[:,None])
         
-    if int(gene2fpeak_norm_style)==1:
-        vstd = np.std(dz_vals.astype(float), axis=0)
-        print("Flag 231.020 ", vstd.shape, dz_vals.shape, flush=True)
-        dz_vals = dz_vals.copy() / (1e-12 + vstd)
+    elif adata_norm_style == 2:
+        ax_l2norm = np.sqrt(np.sum(ax**2, axis=1))
+        ax = np.sort(ax.copy(), axis=1) / (1e-12 + ax_l2norm[:,None])
+        print("Flag 231.10 ")
+        print(ax[-10:,-10:])
+        print(np.sum(ax**2,axis=1)[-10:])
         
-    if int(gene2fpeak_norm_style)==2:
-        vstd = np.std(dz_vals.astype(float), axis=0)
-        print("Flag 231.022 ", vstd.shape, dz_vals.shape, flush=True)
-        dz_vals = dz_vals.copy() / (1e-12 + vstd)
+    dz_cols = dz.columns[:-2]
+    dz_vals = dz.values[:,:-2]
         
-        vl2norm = np.sqrt(np.sum(np.power(dz_vals.astype(float),2), axis=1))
-        print("Flag 231.024 ", vl2norm.shape, dz_vals.shape, flush=True)
-        dz_vals = dz_vals.copy() / (1e-12 + vl2norm[:,None])
-        
-    if int(gene2fpeak_norm_style)==3:
-        vl2norm = np.sqrt(np.sum(np.power(dz_vals.astype(float),2), axis=1))
-        print("Flag 231.025 ", vl2norm.shape, dz_vals.shape, flush=True)
-        dz_vals = dz_vals.copy() / (1e-12 + vl2norm[:,None])
-        
-    import schema_qp
+    vstd = np.std(dz_vals.astype(float), axis=0)
+    print("Flag 231.0275 ", vstd.shape, dz_vals.shape, flush=True)
+    dz_vals = dz_vals.copy() / (1e-12 + vstd)
+            
+    try:
+        sys.path.append(os.path.join(sys.path[0],'../../schema'))
+        import schema_qp
+    except:
+        from schema import schema_qp
+
     sqp = schema_qp.SchemaQP(min_corr, maxwt, params= {"dist_npairs": 1000000}, mode="scale")
     try:
         dz1 = sqp.fit_transform(dz_vals, [ax], ['feature_vector'], [1])
@@ -150,16 +101,21 @@ def f_helper_mprun_schemawts_2(args):
     
         wtsx = np.sqrt(np.maximum(sqp._wts/np.sum(sqp._wts), 0))
     except:
-        print ("ERROR: schema failed for ", min_corr, maxwt, use_first_col, strand, chromosome, gene2fpeak_norm_style)
+        print ("ERROR: schema failed for ", min_corr, maxwt, strand, chromosome)
         wtsx = 1e12*np.ones(dz_vals.shape[1])
     
     wdf = pd.Series(wtsx, index=dz_cols).sort_values(ascending=False).reset_index().rename(columns={"index": "fdist",0: "wt"})
-    wdf.to_csv("{0}/adata1_sqp_wts_mincorr{1}_maxw{2}_usefirstcol{3}_strand{4}_chr{5}_norm-gene2fpeak{6}_{7}.csv".format(dir1, min_corr, maxwt, (1 if use_first_col else 0), strand, chromosome,  gene2fpeak_norm_style, outsfx), index=False)
+    wdf.to_csv("{0}/adata1_sqp_wts_mincorr{1}_maxw{2}_strand{4}_chr{5}_adatanorm{8}_{7}.csv".format(dir1, min_corr, maxwt, 1, strand, chromosome, 5, outsfx, adata_norm_style), index=False)
 
 
     
-def mprun_schemawts_2(adata1, dz, dir1, outsfx, n_jobs=4):
-    import schema_qp
+def mprun_schemawts_2(adata1, dz, dir1, outsfx, adata_norm_style, do_dataset_split=False, n_jobs=4):
+    
+    try:
+        sys.path.append(os.path.join(sys.path[0],'../../schema'))
+        import schema_qp
+    except:
+        from schema import schema_qp
     
     pool =  multiprocessing.Pool(processes = n_jobs)
     try:
@@ -171,40 +127,45 @@ def mprun_schemawts_2(adata1, dz, dir1, outsfx, n_jobs=4):
     chrx = adata1.var["chr"].apply(lambda s: s.replace("chr",""))
     
     lx = []
+
+    # one-time export of data for ridge-regression comparison
+    # if False:
+    #     dfax = pd.DataFrame(ax.T)
+    #     dfax.columns = list(adata1.var_names)
+        
+    #     dz_vals = dz[dz.ensembl_id.isin(adata1.var["ensembl_id"])].values.copy()[:,:-2]
+    #     vstd = np.std(dz_vals.astype(float), axis=0)
+    #     dfdz = pd.DataFrame(dz_vals/ (1e-12 + vstd))
+    #     dfdz.columns = list(dz.columns)[:-2]
+    #     dfax.to_csv("saved_data_{0}_gexp.csv".format(outsfx), index=False)
+    #     adata1.var.to_csv("saved_data_{0}_aux.csv".format(outsfx), index=False)
+    #     dfdz.to_csv("saved_data_{0}_features.csv".format(outsfx), index=False)
     
-            
-    for gene2fpeak_norm_style in  [3]: #, 1, 2, 3]:
-        dz2 = dz
-        # if gene2fpeak_norm_style==True:
-        #     dz2  = dz.copy(deep=True)
-        #     dz2  = dz2 / (1e-12 + dz2.std())
-            
-        for strand in ["both", "plus", "minus"]:
-            gidx_strand = np.full(nGenes, True)
-            if strand == "plus":  gidx_strand = np.where(adata1.var["strand"]=="+", True, False)
-            if strand == "minus": gidx_strand = np.where(adata1.var["strand"]=="-", True, False)
 
-            for chromosome in ["all", "1--8","9--16","17--23"]: 
-                if (strand!="both") and chromosome!="all": continue
-                
-                gidx_chr = np.full(nGenes, True)
-                if chromosome=="1--8":   gidx_chr = chrx.isin("1,2,3,4,5,6,7,8".split(","))
-                if chromosome=="9--16":  gidx_chr = chrx.isin("9,10,11,12,13,14,15,16".split(","))
-                if chromosome=="17--23": gidx_chr = chrx.isin("17,18,19,20,21,22,X,Y".split(","))
+    dz2 = dz
+    for strand in ["both", "plus", "minus"]:
+        if strand != "both" and do_dataset_split==False: continue
+        
+        gidx_strand = np.full(nGenes, True)
+        if strand == "plus":  gidx_strand = np.where(adata1.var["strand"]=="+", True, False)
+        if strand == "minus": gidx_strand = np.where(adata1.var["strand"]=="-", True, False)
 
-                for mc in [ 0.01, 0.25, 0.50, 0.75, 0.875, 0.90]:
-                    if (strand!="both" or chromosome!="all" or gene2fpeak_norm_style!=3) and mc not in [0.01, 0.20]: continue
+        for chromosome in ["all", "1--8","9--16","17--23"]:
+            if chromosome != "all" and do_dataset_split==False: continue
 
-                    for mw in [100, 50, 30, 20, 10]:
-                        if (strand!="both" or chromosome!="all" or gene2fpeak_norm_style!=3) and mw!=100: continue
-                        
-                        for use_first_col in  [True]: #, False]:
-                            if (strand!="both" or chromosome!="all" or gene2fpeak_norm_style!=3) and use_first_col!=True: continue
-                            
-                            gidx = gidx_strand & gidx_chr
-                            print("Flag 3312.040 ", gidx.shape, np.sum(gidx), ax.shape, dz2.shape, flush=True)
-                            lx.append((ax[gidx,:], dz2[dz2.ensembl_id.isin(adata1.var["ensembl_id"][gidx])], dir1, outsfx, mc, mw, use_first_col, strand, chromosome, gene2fpeak_norm_style))
-                            print("Flag 3312.050 ", np.sum(gidx), lx[-1][2:], flush=True)
+            gidx_chr = np.full(nGenes, True)
+            if chromosome=="1--8":   gidx_chr = chrx.isin("1,2,3,4,5,6,7,8".split(","))
+            if chromosome=="9--16":  gidx_chr = chrx.isin("9,10,11,12,13,14,15,16".split(","))
+            if chromosome=="17--23": gidx_chr = chrx.isin("17,18,19,20,21,22,X,Y".split(","))
+
+            for mc in [0.20, 0.5, 0.9]:
+                for mw in [10,5,3]:
+
+                    gidx = gidx_strand & gidx_chr
+                    print("Flag 3312.040 ", gidx.shape, np.sum(gidx), ax.shape, dz2.shape, flush=True)
+                    lx.append((ax[gidx,:], dz2[dz2.ensembl_id.isin(adata1.var["ensembl_id"][gidx])], dir1, outsfx,
+                               mc, mw, strand, chromosome, adata_norm_style))
+                    print("Flag 3312.050 ", np.sum(gidx), lx[-1][2:], flush=True)
 
     try:
         pool.map(f_helper_mprun_schemawts_2, lx)
@@ -252,8 +213,6 @@ def rankGenesByVariability(adata1):
     import scanpy as sc 
     nGenes = adata1.shape[1]
     print ("Flag 7868.200 ",   nGenes, adata1.X.shape, adata1.shape, scipy.sparse.isspmatrix(adata1.X))
-    #print ("Flag 7868.201 ",   describe(np.ravel(np.mean(adata1.X, axis=0))))
-    #print ("Flag 7868.202 ",   describe(np.ravel(np.std(adata1.X, axis=0))))
     v = np.full(nGenes, nGenes)
     for i in range(500,nGenes-500,250):
         print ("Flag 7868.205 ",   i)
@@ -286,34 +245,6 @@ def findNonVariableGenes(adata1, gene_window):
     return w
 
 
-    # step_size = 1000
-    # nGenes = adata1.shape[1]
-
-    # w = None
-    # k = gene_cnt
-    # i = 0
-    # while step_size > 5:
-    #     w = (sc.pp.highly_variable_genes(adata1, n_top_genes=nGenes - k, inplace=False)).highly_variable
-
-    #     nw = np.sum(~w)
-    #     if i > 20 or abs(nw - gene_cnt) < 10: break
-
-    #     if nw > gene_cnt: 
-    #         k -= step_size
-    #         i += 1
-    #         step_size = int(step_size / 2.0)
-        
-    #     else:
-    #         k += step_size
-    #         i += 1
-    #         step_size = int(step_size / 2.0)
-
-    #     print ("Flag 7867.100 ",  np.sum(~w), gene_cnt, nGenes, step_size, k, i)
-    
-    # assert w is not None
-    # return ~w
-
-
 
 def random_gene_list(nGenes, gene_cnt, num_random_samples=1000):
     L  = []
@@ -323,43 +254,6 @@ def random_gene_list(nGenes, gene_cnt, num_random_samples=1000):
         L.append(b)
 
     return L
-
-
-def f_mode4_helper(gdist_matrix,  gene_set, mode):
-    try:
-        gdist2 = gdist_matrix[gene_set, :][:, gene_set]
-        print ("Flag 34.20 ", gdist2.shape, np.sum(gene_set), len(gene_set))
-        if mode in ["4","5","51","52"]:
-            gw = np.ravel(np.amin(gdist2, axis=0))
-            wx = gw[ gw < 1e12]
-            print ("Flag 34.40 ", gw.shape, len(wx), np.sum(wx), np.mean(wx))
-            assert len(wx) > 0
-            return np.mean(wx)
-    except Exception as e:
-        print ("Flag 34.50 saw exception for ", gdist_matrix.shape, len(gene_set), np.sum(gene_set), e)
-        traceback.print_exc(file=sys.stdout)
-        return np.NaN
-    
-
-
-def f_mode6_helper(gdist_matrix, gsign_matrix,  gene_set, mode):
-    try:
-        gdist2 = gdist_matrix[gene_set, :][:, gene_set]
-        gsign2= gsign_matrix[gene_set, :][:, gene_set]
-        print ("Flag 35.20 ", gdist2.shape, gsign2.shape, np.sum(gene_set), len(gene_set))
-
-        if mode in ["6","61","62"]:
-            gw = np.ravel(np.amin(gdist2, axis=0))
-            gw_idx = np.ravel(np.argmin(gdist2, axis=0))
-            gs = np.ravel(gsign2[ np.arange(gdist2.shape[0]), gw_idx])
-            wx = gs[ gw < 1e12]
-            print ("Flag 35.40 ", gw.shape, gs.shape, len(wx), np.sum(wx), np.mean(wx))
-            assert len(wx) > 0
-            return np.mean(wx)
-    except Exception as e:
-        print ("Flag 35.50 saw exception for ", gdist_matrix.shape, gsign_matrix.shape, len(gene_set), np.sum(gene_set), e)
-        traceback.print_exc(file=sys.stdout)
-        return np.NaN
     
 
 def  getGene2TADmap(adata1, tad):
@@ -383,39 +277,30 @@ def  getGene2TADmap(adata1, tad):
 def f_in_tad_cnt( g2tad, gene_set):
     return np.sum(~np.isnan(g2tad[gene_set]))
 
-def f_mode7_helper(g2tad, gene_sharedtad,  gene_set, mode):
-    if mode in "7,71,72".split(","):
-        w= f_in_tad_cnt(g2tad, gene_set)/float(np.sum(gene_set))
-        print ("Flag 36.0 ", w)
-        return w
 
-    if mode in "8,81,82".split(","):
-        v  = g2tad[gene_set]
-        v = v[~np.isnan(v)]
-        n_tads = len(np.unique(v))
-        print ("Flag 36.1 ", n_tads)
-        return n_tads
+def f_mode_hvg_tad_dispersion_helper(g2tad, gene_sharedtad,  gene_set):
+    tad2genes = defaultdict(list)
+    for i, t in enumerate(g2tad):
+        if not np.isnan(t) and gene_set[i]:
+            tad2genes[t].append(i)
+    return [(k,v,len(v)) for k,v in tad2genes.items()]
 
 
-def f_mode81x_helper(g2tad, gene_sharedtad,  gene_set, mode):
-    if mode == "81x":
-        tad2genes = defaultdict(list)
-        for i, t in enumerate(g2tad):
-            if not np.isnan(t) and gene_set[i]:
-                tad2genes[t].append(i)
-        return [(k,v,len(v)) for k,v in tad2genes.items()]
-                                     
     
 #################################################################################
 
 if __name__ == "__main__":
-    sys.path.append(os.path.join(sys.path[0],'../../schema'))
-    from utils import SciCar
+    try:
+        sys.path.append(os.path.join(sys.path[0],'../../schema'))
+        from utils import SciCar
+    except:
+        import schema
+        from schema.utils import SciCar
 
     import argparse
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", help="which code path to run. see main(..) for details")
-    parser.add_argument("--outdir", help="output directory (can set to '.')", type=str, default="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/")
+    parser.add_argument("--outdir", help="output directory (can set to '.')", type=str, default=".")
     parser.add_argument("--outsfx", help="suffix to use when producing output files")
     parser.add_argument("--style", help="mode-specific interpretation", type=int, default=-1)
     parser.add_argument("--infile", help="input .h5ad file. Default is Sci-Car hs A549")
@@ -436,14 +321,13 @@ if __name__ == "__main__":
 
 
     if args.infile is None:
-        args.infile = "/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1x.h5ad"
+        args.infile = "/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/processed/adata1x.h5ad"
 
 
     adata1 = SciCar.loadAnnData(args.infile)
     adata1 = SciCar.preprocessAnnData(adata1, True, 5, 3, 5)
 
     if args.mode=="produce_gene2fpeak":
-        #  --mode produce_gene2fpeak --outsfx 20191218-1615 --njobs 36 
         if args.style < 0: args.style = 0
         dx = mprun_geneXfpeak_mtx(adata1, 36)
         dx.to_csv("{0}/adata1_M-{1}_S-{2}_mtx_{3}.csv".format( args.outdir, args.mode, args.style, args.outsfx), index=False)
@@ -452,16 +336,17 @@ if __name__ == "__main__":
     if args.mode=="schema_gene2fpeak":
         #  --mode schema_gene2fpeak --outsfx 20191218-1615 --njobs 5 --extra gene2fpeak_file=adata1_M-produce_gene2fpeak_S-0_mtx_20191218-1615.csv
 
-        if args.style < 0: args.style = 3 
+        if args.style < 0: args.style = 0
 
         assert "gene2fpeak_file" in extra_args
         dz = pd.read_csv(extra_args["gene2fpeak_file"])
 
-        adata1.var["gene_variability_ranking"] = rankGenesByVariability(adata1)
+        if "fpeak_cols_to_drop" in extra_args:
+            dz = dz.drop(columns = extra_args["fpeak_cols_to_drop"].split(","))
 
-        ax_l2norm = np.ravel(np.sqrt(np.sum(np.power(adata1.X.todense(),2), axis=0))) #np.sqrt(np.sum(adata1.X**2, axis=0))
-        print ("Flag 2321.100 ", ax_l2norm.shape, flush=True)
-        adata1.X = adata1.X.todense() / (1e-12 + ax_l2norm)
+        adata1.var["gene_variability_ranking"] = rankGenesByVariability(adata1)
+        
+        adata1.X = adata1.X.todense()
         
         min_hvgrank, max_hvgrank = int(extra_args.get("min_hvgrank",0)), int(extra_args.get("max_hvgrank",1000000))
         adata1 = adata1[:, ((adata1.var["gene_variability_ranking"] >= min_hvgrank) & 
@@ -471,344 +356,20 @@ if __name__ == "__main__":
 
         assert np.sum(dz.ensembl_id.values != adata1.var["ensembl_id"].values)==0
 
-        mprun_schemawts_2(adata1, dz, args.outdir, "M-{0}_S-{1}_minhvg-{2}_maxhvg-{3}_{4}".format(args.mode, args.style, min_hvgrank, max_hvgrank, args.outsfx), args.njobs)
-    
-                
-
-
-
-if __name__ == "__mainxxx__":
-
-    sys.path.append(os.path.join(sys.path[0],'../../schema'))
-    print (sys.path)
-    from utils import SciCar
-
-    mode = sys.argv[1]
-    outsfx = sys.argv[2]
-    if mode=="0":
-        write_h5_files()
-
-    if mode=="1":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        dx = mprun_geneXfpeak_mtx(adata1, 24)
-        dx.to_csv("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1_gene2fpeak_mtx_{0}.csv".format(outsfx), index=False)
-
-    if mode=="2":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        adata1.X = sklearn.preprocessing.StandardScaler().fit_transform(adata1.X.todense())
-        dx = mprun_geneXfpeak_mtx(adata1, 24)
-        dx.to_csv("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1_gene2fpeak_mtx_gexp-standardized_{0}.csv".format(outsfx), index=False)
-
-    if mode=="3":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-        dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_20191126_1900.csv".format(dir1))
-        mprun_schemawts_1(adata1, dz, dir1, outsfx, 4)
-
-    if mode=="21":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        adata1.X = sklearn.preprocessing.StandardScaler().fit_transform(adata1.X.todense())
-        dx = mprun_geneXfpeak_mtx(adata1, 36)
-        dx.to_csv("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1_gene2fpeak_mtx_gexp-standardized_{0}.csv".format(outsfx), index=False)
-
-    if mode=="22":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        dx = mprun_geneXfpeak_mtx(adata1, 36)
-        dx.to_csv("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1_gene2fpeak_mtx_{0}.csv".format(outsfx), index=False)
-
-    if mode=="221":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        dx = mprun_geneXfpeak_mtx(adata1, 36, style=2)
-        dx.to_csv("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1_gene2fpeak_mtx_{0}.csv".format(outsfx), index=False)
-
-    if mode=="222":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        dx = mprun_geneXfpeak_mtx(adata1, 36, style=3)
-        dx.to_csv("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1_gene2fpeak_mtx_{0}.csv".format(outsfx), index=False)
-
-
-    if mode=="23":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-        dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_20191202-1400.csv".format(dir1))
-        mprun_schemawts_2(adata1, dz, dir1, "mode" + mode + "_" + outsfx, 5)
-
+        adata_norm_style = int(extra_args.get("adata_norm_style",0))
+        do_dataset_split = int(extra_args.get("do_dataset_split",0)) > 0.5
         
-    if mode=="231" or mode=="2311" or mode=="2312":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-
-        #adata1.X = sklearn.preprocessing.StandardScaler().fit_transform(adata1.X.todense())
-
-        ax_l2norm = np.sqrt(np.sum(np.power(adata1.X.todense(),2), axis=0)) #np.sqrt(np.sum(adata1.X**2, axis=0))
-        print ("Flag 2321.100 ", ax_l2norm.shape, flush=True)
-        adata1.X = adata1.X.todense() / (1e-12 + ax_l2norm)
-
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-        dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_20191202-1400.csv".format(dir1))
-        if mode=="2311":
-            dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_gexp-standardized_20191202-1245.csv".format(dir1))
-
-        if mode=="2312":
-            dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_style2_20191204-1945.csv".format(dir1))
-
-        mprun_schemawts_2(adata1, dz, dir1,  "mode" + mode + "_" + outsfx, 5)
-
-        
-    if mode=="232" or mode=="2321" or mode=="2322":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-
-        import matplotlib
-        matplotlib.use("agg") #otherwise scanpy tries to use tkinter which has issues importing
-        import scanpy as sc 
-        sc.pp.highly_variable_genes(adata1, n_top_genes=5000, inplace=True)
-
-        ax_l2norm = np.sqrt(np.sum(np.power(adata1.X.todense(),2), axis=0)) #np.sqrt(np.sum(adata1.X**2, axis=0))
-        print ("Flag 2321.100 ", ax_l2norm.shape, flush=True)
-        adata1.X = adata1.X.todense() / (1e-12 + ax_l2norm)
-
-        adata1 = adata1[:, adata1.var["highly_variable"]]
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-        dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_20191202-1400.csv".format(dir1))
-
-        if mode=="2321":
-            dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_gexp-standardized_20191202-1245.csv".format(dir1))
-
-        if mode=="2322":
-            dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_style2_20191204-1945.csv".format(dir1))
-
-        dz = dz[dz.ensembl_id.isin(adata1.var["ensembl_id"])].reset_index(drop=True)
-        mprun_schemawts_2(adata1, dz, dir1, "mode" + mode + "_" + outsfx, 5)
+        mprun_schemawts_2(adata1, dz, args.outdir, "M-{0}_S-{1}_minhvg-{2}_maxhvg-{3}_{4}".format(args.mode, args.style, min_hvgrank, max_hvgrank, args.outsfx), adata_norm_style, do_dataset_split, args.njobs)
 
 
 
-    if mode=="33":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        gexp_cnt = np.ravel(np.sum(adata1.X.todense() > 0.1, axis=0))
-        valid_genes = gexp_cnt > 5
-        adata1 = adata1[:, valid_genes]
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-        dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_20191210-2300.csv".format(dir1))
-        mprun_schemawts_2(adata1, dz, dir1, "mode" + mode + "_" + outsfx, 5)
-
-        
-    if mode=="331":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        gexp_cnt = np.ravel(np.sum(adata1.X.todense() > 0.1, axis=0))
-        valid_genes = gexp_cnt > 5
-        adata1 = adata1[:, valid_genes]
-
-        #adata1.X = sklearn.preprocessing.StandardScaler().fit_transform(adata1.X.todense())
-
-        ax_l2norm = np.sqrt(np.sum(np.power(adata1.X.todense(),2), axis=0)) #np.sqrt(np.sum(adata1.X**2, axis=0))
-        print ("Flag 2321.100 ", ax_l2norm.shape, flush=True)
-        adata1.X = adata1.X.todense() / (1e-12 + ax_l2norm)
-
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-        dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_20191210-2300.csv".format(dir1))
-
-        mprun_schemawts_2(adata1, dz, dir1,  "mode" + mode + "_" + outsfx, 5)
-
-        
-    if mode=="332":
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        gexp_cnt = np.ravel(np.sum(adata1.X.todense() > 0.1, axis=0))
-        valid_genes = gexp_cnt > 5
-        adata1 = adata1[:, valid_genes]
-
-        import matplotlib
-        matplotlib.use("agg") #otherwise scanpy tries to use tkinter which has issues importing
-        import scanpy as sc 
-        sc.pp.highly_variable_genes(adata1, n_top_genes=4000, inplace=True)
-
-        ax_l2norm = np.sqrt(np.sum(np.power(adata1.X.todense(),2), axis=0)) #np.sqrt(np.sum(adata1.X**2, axis=0))
-        print ("Flag 2321.100 ", ax_l2norm.shape, flush=True)
-        adata1.X = adata1.X.todense() / (1e-12 + ax_l2norm)
-
-        adata1 = adata1[:, adata1.var["highly_variable"]]
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-        dz = pd.read_csv("{0}/adata1_gene2fpeak_mtx_20191210-2300.csv".format(dir1))
-
-        dz = dz[dz.ensembl_id.isin(adata1.var["ensembl_id"])].reset_index(drop=True)
-        mprun_schemawts_2(adata1, dz, dir1, "mode" + mode + "_" + outsfx, 5)
-
-        
-    if mode=="4":
+    if args.mode == "compute_hvg_tad_dispersion": 
         import scanpy as sc
 
-        gene_window = [int(w) for w in sys.argv[2].split("-")]
-        outsfx = sys.argv[3]
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
+        min_hvgrank, max_hvgrank = int(extra_args.get("min_hvgrank",0)), int(extra_args.get("max_hvgrank",1000000))
+        gene_window = [min_hvgrank, max_hvgrank]
 
-        print ("Flag 54123.10 ")
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        mu_gexp = np.ravel(np.mean(adata1.X, axis=0))
-        valid_genes = mu_gexp > 1e-5
-        adata1 = adata1[:, valid_genes]
-
-        print ("Flag 54123.10 ", adata1.shape, adata1.X.shape, adata1.var.shape)
-        
-        nGenes = adata1.X.shape[1]
-
-        gdist_matrix = getGeneDistances(adata1)
-        print ("Flag 54123.20 ", gdist_matrix.shape) #, describe(gdist_matrix))
-        non_variable_genes = findNonVariableGenes(adata1,  gene_window)
-        print ("Flag 54123.30 ", gene_window, len(non_variable_genes), np.sum(non_variable_genes))
-
-        n_nonvar_genes = np.sum(non_variable_genes)
-    
-        lx0 = [non_variable_genes] + random_gene_list(nGenes, n_nonvar_genes, num_random_samples=500)
-        lx =  [(gdist_matrix, a, mode) for a in lx0]
-
-        print ("Flag 54123.40 ", len(lx), len(lx[1][1]), np.sum(lx[1][1]))
-        
-        n_jobs = 36
-        print ("Flag 54123.435 ", nGenes, n_nonvar_genes, gdist_matrix.shape, adata1.shape, len(lx))
-
-        pool =  multiprocessing.Pool(processes = n_jobs)
-
-        ly = pool.starmap(f_mode4_helper, lx)
-        
-        print ("Flag 54123.500 ",  ly[:30])
-
-        d_actual = ly[0]
-        d_bl = np.array(ly[1:])
-        mu, sd, median = np.nanmean(d_bl), np.std(d_bl), np.nanmedian(d_bl)
-        d_actual_rank = float(np.sum( d_actual >  d_bl))/len(d_bl)
-
-        outfile = "{0}/adata1_variablegene_nearestdist_mode{2}_genewindow{3}_{1}".format(dir1, outsfx, mode, sys.argv[2])
-        outw = [d_actual_rank, d_actual, mu, sd, median, len(d_bl), gene_window[0], gene_window[1], n_nonvar_genes] + list(d_bl)
-        np.savetxt(outfile, np.array(outw))
-        #print("RESULT ", d_actual, d_actual_rank, d_bl, mu, sd, median, len(d_bl), gene_cnt, n_nonvar_genes)
-
-
-
-    if mode in "5,51,52,6,61,62,7,71,72,8,81,82".split(","):
-        import scanpy as sc
-
-        gene_window = [int(w) for w in sys.argv[2].split("-")]
-        outsfx = sys.argv[3]
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        adata1.X = adata1.X.todense()
-        gexp_cnt = np.ravel(np.sum(adata1.X > 0.1, axis=0))
-        #mu_gexp = np.ravel(np.mean(adata1.X, axis=0))
-        #valid_genes = mu_gexp > 1e-5
-        valid_genes = gexp_cnt > 5
-        adata1 = adata1[:, valid_genes]
-
-        nGenes = adata1.shape[1]
-        mu_gexp = np.ravel(np.mean(adata1.X, axis=0))
-        adata1.var["gene_expression_ranking"] = scipy.stats.rankdata(-mu_gexp) #highest=1
-
-        nGenes = adata1.shape[1]
-        sd_gexp = np.ravel(np.std(adata1.X, axis=0))
-        adata1.var["gene_expsd_ranking"] = scipy.stats.rankdata(sd_gexp) #lowest=1
-
-        gdist_matrix = getGeneDistances(adata1)
-        print ("Flag 54123.20 ", gdist_matrix.shape) #, describe(gdist_matrix))
-
-        if mode in "6,61,62".split(","):
-            gsign_matrix = getGeneStrandMatch(adata1)
-            print ("Flag 54123.21 ", gsign_matrix.shape) #, describe(gdist_matrix))
-
-        if mode in "7,71,72,8,81,82".split(","):
-            tad = pd.read_csv("/afs/csail.mit.edu/u/r/rsingh/work/refdata/hg19_A549_TAD.bed", delimiter="\t", header=None)
-            tad.columns = ["chr","start","end", "x1","x2"]
-            g2tad, gene_sharedtad = getGene2TADmap(adata1, tad)
-
-
-        nGenes = adata1.shape[1]
-        v = np.full(nGenes, nGenes)
-        for i in tqdm(range(500,nGenes-500,500)):
-            v0 = sc.pp.highly_variable_genes(adata1, n_top_genes=i,inplace=False).highly_variable
-            v = np.where((v==nGenes) & v0, i, v).copy()
-        adata1.var["gene_variability_ranking"] = v
-            
-        window_genes = ((adata1.var["gene_expression_ranking"].values >= gene_window[0]) &  
-                                    (adata1.var["gene_expression_ranking"].values <   gene_window[1])) 
-
-        if mode in "51,61,71,81".split(","):
-            window_genes = ((adata1.var["gene_variability_ranking"].values >= gene_window[0]) &  
-                            (adata1.var["gene_variability_ranking"].values <   gene_window[1])) 
-
-
-        if mode in "52,62,72,82".split(","):
-            window_genes = ((adata1.var["gene_expsd_ranking"].values >= gene_window[0]) &  
-                            (adata1.var["gene_expsd_ranking"].values <   gene_window[1])) 
-
-        n_window_genes = np.sum(window_genes)
-
-        print ("Flag 54123.30 ", gene_window, len(window_genes), np.sum(window_genes))
-
-        num_samples = 1000
-
-        lx0 = [window_genes] + random_gene_list(nGenes, n_window_genes, num_random_samples=num_samples)
-        lx =  [(gdist_matrix, a, mode) for a in lx0]
-
-        if mode in "8,81,82".split(","):
-            in_tad_cnt = f_in_tad_cnt(g2tad, window_genes)
-            tad_total_cnt = np.sum(~np.isnan(g2tad))
-
-            rl = random_gene_list(tad_total_cnt, in_tad_cnt, num_random_samples = num_samples)
-
-            window_genes [np.isnan(g2tad)] = False
-            n_window_genes = np.sum(window_genes)
-            lx0 = [window_genes]
-            print ("Flag 54123.32 ",  len(window_genes), np.sum(window_genes), len(lx0))
-            for rlx in rl:
-                ax = np.full( nGenes, False)
-                ax[~np.isnan(g2tad)] = rlx #[rlx] = True
-                lx0.append(ax)
-            print ("Flag 54123.33 ",  len(window_genes), np.sum(window_genes), len(lx0), len(lx0[1]), np.sum(lx0[1]))
-            
-        if mode in ["6","61","62"]:
-            lx =  [(gdist_matrix, gsign_matrix, a, mode) for a in lx0]
-
-        if mode in "7,71,72,8,81,82".split(","):
-            lx =  [(g2tad, gene_sharedtad, a, mode) for a in lx0]
-
-
-        print ("Flag 54123.40 ", len(lx), len(lx[1][2]), np.sum(lx[1][2]))
-        
-        n_jobs = 36
-        print ("Flag 54123.435 ", nGenes, n_window_genes, gdist_matrix.shape, adata1.shape, len(lx))
-
-        pool =  multiprocessing.Pool(processes = n_jobs)
-
-        if mode in "4,5,51,52".split(","):
-            ly = pool.starmap(f_mode4_helper, lx)
-
-        elif mode in "6,61,62".split(","):
-            ly = pool.starmap(f_mode6_helper, lx)
-
-        elif mode in "7,71,72,8,81,82".split(","):
-            ly = pool.starmap(f_mode7_helper, lx)
-
-        print ("Flag 54123.500 ",  ly[:30])
-
-        d_actual = ly[0]
-        d_bl = np.array(ly[1:])
-        mu, sd, median = np.nanmean(d_bl), np.std(d_bl), np.nanmedian(d_bl)
-        d_actual_rank = float(np.sum( d_actual >  d_bl))/len(d_bl)
-
-        outfile = "{0}/adata1_gexp_nearestdist_mode{2}_genewindow{3}_{1}".format(dir1, outsfx, mode, sys.argv[2])
-        outw = [d_actual_rank, d_actual, mu, sd, median, len(d_bl), gene_window[0], gene_window[1], n_window_genes] + list(d_bl)
-        np.savetxt(outfile, np.array(outw))
-
-
-    if mode in "81x".split(","):
-        import scanpy as sc
-
-        gene_window = [int(w) for w in sys.argv[2].split("-")]
-        outsfx = sys.argv[3]
-        dir1="/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car"
-
-        adata1 = SciCar.loadAnnData("/afs/csail.mit.edu/u/r/rsingh/work/schema/data/sci-car/adata1.h5ad")
-        adata1.X = adata1.X.todense()
-        gexp_cnt = np.ravel(np.sum(adata1.X > 0.1, axis=0))
-        valid_genes = gexp_cnt > 5
-        adata1 = adata1[:, valid_genes]
+        outsfx = args.outsfx
 
         gdist_matrix = getGeneDistances(adata1)
         print ("Flag 54123.20 ", gdist_matrix.shape) #, describe(gdist_matrix))
@@ -816,16 +377,19 @@ if __name__ == "__mainxxx__":
         gsign_matrix = getGeneStrandMatch(adata1)
         print ("Flag 54123.21 ", gsign_matrix.shape) #, describe(gdist_matrix))
 
-        tad = pd.read_csv("/afs/csail.mit.edu/u/r/rsingh/work/refdata/hg19_A549_TAD.bed", delimiter="\t", header=None)
+        tad = pd.read_csv(extra_args.get("tad_locations_file", "hg19_A549_TAD.bed"), delimiter="\t", header=None)
         tad.columns = ["chr","start","end", "x1","x2"]
         g2tad, gene_sharedtad = getGene2TADmap(adata1, tad)
 
         nGenes = adata1.shape[1]
-        v = np.full(nGenes, nGenes)
-        for i in tqdm(range(500,nGenes-500,500)):
-            v0 = sc.pp.highly_variable_genes(adata1, n_top_genes=i,inplace=False).highly_variable
-            v = np.where((v==nGenes) & v0, i, v).copy()
-        adata1.var["gene_variability_ranking"] = v
+        
+        # v = np.full(nGenes, nGenes)
+        # for i in tqdm(range(500,nGenes-500,500)):
+        #     v0 = sc.pp.highly_variable_genes(adata1, n_top_genes=i,inplace=False).highly_variable
+        #     v = np.where((v==nGenes) & v0, i, v).copy()
+        # adata1.var["gene_variability_ranking"] = v
+
+        adata1.var["gene_variability_ranking"] = rankGenesByVariability(adata1)
             
         window_genes = ((adata1.var["gene_variability_ranking"].values >= gene_window[0]) &  
                         (adata1.var["gene_variability_ranking"].values <   gene_window[1])) 
@@ -834,16 +398,14 @@ if __name__ == "__mainxxx__":
 
         print ("Flag 54123.30 ", gene_window, len(window_genes), np.sum(window_genes))
 
-        num_samples = 100 #1000
-
-        lx0 = [window_genes] + random_gene_list(nGenes, n_window_genes, num_random_samples=num_samples)
-        lx =  [(gdist_matrix, a, mode) for a in lx0]
+        num_samples = 1000
 
         in_tad_cnt = f_in_tad_cnt(g2tad, window_genes)
         tad_total_cnt = np.sum(~np.isnan(g2tad))
 
         rl = random_gene_list(tad_total_cnt, in_tad_cnt, num_random_samples = num_samples)
 
+        # we don't really care about genes outside TADs in this analysis
         window_genes [np.isnan(g2tad)] = False
         n_window_genes = np.sum(window_genes)
         lx0 = [window_genes]
@@ -854,7 +416,7 @@ if __name__ == "__mainxxx__":
             lx0.append(ax)
         print ("Flag 54123.33 ",  len(window_genes), np.sum(window_genes), len(lx0), len(lx0[1]), np.sum(lx0[1]))
             
-        lx =  [(g2tad, gene_sharedtad, a, mode) for a in lx0]
+        lx =  [(g2tad, gene_sharedtad, a) for a in lx0]
 
 
         print ("Flag 54123.40 ", len(lx), len(lx[1][2]), np.sum(lx[1][2]))
@@ -864,23 +426,45 @@ if __name__ == "__mainxxx__":
 
 
         pool =  multiprocessing.Pool(processes = n_jobs)
-        ly = pool.starmap(f_mode81x_helper, lx)
+        ly = pool.starmap(f_mode_hvg_tad_dispersion_helper, lx)
 
-        outfile = "{0}/adata1_tad_membership_mode{2}_genewindow{3}_{1}".format(dir1, outsfx, mode, sys.argv[2])
+        outfile = "adata1_tad_membership_genewindow{0}-{1}_{2}".format(min_hvgrank, max_hvgrank, outsfx)
         outfh = open(outfile, 'w')
-        
-        random_samples_cnts = defaultdict(int)
-        random_samples_N = 0
-        for z in ly[1:]:
-            for _, _, tadcnt in z: 
-                random_samples_cnts[tadcnt] += 1
-            random_samples_N += 1.0
-            
-        for k,v in sorted(random_samples_cnts.items(), key = lambda a: a[0]):
-            outfh.write("Random,{0},{1}\n".format(k, v/random_samples_N))
 
-        for tadidx, tad_members, tadcnt in sorted(ly[0], key=lambda a: -a[2]):
-            outfh.write("Orig,{0},{1},{2}\n".format( tad["x1"][tadidx], tadcnt, ",".join([adata1.var["Symbol"][t] for t in tad_members])))
+        prep_significance_testing_data = int(extra_args.get("prep_significance_testing_data",1)) > 0.5
+        
+        if not prep_significance_testing_data:
+            random_samples_cnts = defaultdict(int)
+            random_samples_N = 0
+            for z in ly[1:]:
+                for _, _, tadcnt in z: 
+                    random_samples_cnts[tadcnt] += 1
+                random_samples_N += 1.0
+
+            for k,v in sorted(random_samples_cnts.items(), key = lambda a: a[0]):
+                outfh.write("Random,{0},{1}\n".format(k, v/random_samples_N))
+
+            for tadidx, tad_members, tadcnt in sorted(ly[0], key=lambda a: -a[2]):
+                outfh.write("Orig,{0},{1},{2}\n".format( tad["x1"][tadidx], tadcnt, ",".join([adata1.var["Symbol"][t] for t in tad_members])))
+
+        else:
+            for i , z in enumerate(ly):
+                #print ("Flag 54123.50 ", i, z)
+                tadcnt2freq = defaultdict(int)
+                numpairs_shared_tad = 0.0
+                n = 0.0
+                for _, _, tadcnt in z: 
+                    tadcnt2freq[tadcnt] += 1
+                    numpairs_shared_tad += tadcnt*(tadcnt-1)/2.0
+                    n += tadcnt
+                numpairs_all = n*(n-1)/2.0
+                s = "Random" if i>0 else "Orig"
+                s += ",{0},{1}".format(n, numpairs_shared_tad/numpairs_all)
+                s += ",".join([""]+["{0}".format(tadcnt2freq[j]) for j in range(1,16)])
+                s += ",".join([""]+["{0}".format(tadcnt2freq[j]*j/n) for j in range(1,16)])
+                #print("Flag 54123.56 ", s)
+                outfh.write(s + "\n")
+            
 
         outfh.close()
 

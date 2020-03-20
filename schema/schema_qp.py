@@ -16,7 +16,7 @@ import sklearn.decomposition, sklearn.preprocessing, sklearn.linear_model, sklea
 import cvxopt
 
 
-schema_loglevel = logging.INFO #WARNING
+schema_loglevel = logging.WARNING  #can be logging.INFO, .DEBUG or .ERROR
 
 
 def schema_debug(*args, **kwargs):
@@ -68,7 +68,7 @@ class SchemaQP:
            # scobj is a scanpy/anndata obj; 3 secondary datasets each given equal wt
            sqp.fit(scobj.X, 
                    [scobj.obs.col1.values, scobj.obs.col2.values, datasetY.values], 
-                   ["categorical", "numeric", "feature_vector"]) 
+                   ["categorical", "numeric", "feature_vector", "feature_vector_categorical"]) 
 
            #or 
 
@@ -178,6 +178,8 @@ class SchemaQP:
                         "dist_df_frac": 1.0,
                         "scale_mode_uses_standard_scaler": 0,
                         "do_whiten": 1,
+                        "require_nonzero_lambda": 0,
+                        "d0_type_is_feature_vector_categorical": 0,
         }
 
 
@@ -214,14 +216,16 @@ Given the primary dataset 'd' and a list of secondary datasets, fit a linear tra
     Columns in scanpy's .obs variables work well (just remember to use .values)
 
 
-`secondary_data_type_list`: `list` of `string`s, each value in {'numeric','feature_vector','categorical'}
+`secondary_data_type_list`: `list` of `string`s, each value in {'numeric','feature_vector','categorical', 'feature_vector_categorical'}
 
     The list's length should match the length of secondary_data_val_list
 
     * 'numeric' means you're giving one floating-pt value for each obs.
           The default distance measure is L2:  (point1-point2)**2
     * 'feature_vector' means you're giving some multi-dimensional representation for each obs.
-          The default distance measure is L2: sum((point1-point2)**2)
+          The default distance measure is L2: sum_{i}((point1[i]-point2[i])**2)
+    * 'feature_vector_categorical' means you're giving some multi-dimensional representation for each obs.
+          Each column can take on categorical values, so the distance between two points is sum_{i}(point1[i]==point2[i])
     * 'categorical' means that you are providing label information that should be compared for equality.
           The default distance measure is: 1*(val1!=val2)
 
@@ -285,6 +289,7 @@ Given the primary dataset 'd' and a list of secondary datasets, fit a linear tra
             
             if not ((secondary_data_type_list[i]=='categorical' and secondary_data_val_list[i].ndim==1) or
                     (secondary_data_type_list[i]=='numeric' and secondary_data_val_list[i].ndim==1) or
+                    (secondary_data_type_list[i]=='feature_vector' and secondary_data_val_list[i].ndim==2) or
                     (secondary_data_type_list[i]=='feature_vector' and secondary_data_val_list[i].ndim==2)):
                 raise ValueError('{0}-th entry in secondary_data_val_list does not match specified type'.format(i+1))
 
@@ -404,7 +409,11 @@ Given a dataset `d`, apply the fitted transform to it
             i_v = x.v.values
             
         # NxK matrix of square distances along dimensions
-        uv_dist = (D[i_u,:].astype(np.float64) - D[i_v,:].astype(np.float64))**2 #(D[i_u,:].toarray() - D[i_v,:].toarray())**2
+        if int(self._params.get("d0_type_is_feature_vector_categorical",1)) > 0.5:
+            uv_dist = (D[i_u,:] == D[i_v,:]).astype(np.float64)
+        else:
+            uv_dist = (D[i_u,:].astype(np.float64) - D[i_v,:].astype(np.float64))**2 
+
 
         # scale things so QP gets ~1-3 digit numbers, very large or very small numbers cause numerical issues         
         uv_dist = uv_dist/ (np.sqrt(uv_dist.shape[0])*uv_dist.ravel().mean())  
@@ -459,6 +468,9 @@ Given a dataset `d`, apply the fitted transform to it
             elif g_type == "feature_vector":
                 print (g_val[i_u].shape, g_val[i_v].shape)
                 dg = np.ravel(np.sum(np.power(g_val[i_u].astype(np.float64) - g_val[i_v].astype(np.float64),2), axis=1))
+            elif g_type == "feature_vector_categorical":
+                print (g_val[i_u].shape, g_val[i_v].shape)
+                dg = np.ravel(np.sum((g_val[i_u] == g_val[i_v]).astype(np.float64), axis=1))
             else:  #numeric
                 dg = (g_val[i_u].astype(np.float64) - g_val[i_v].astype(np.float64))**2   #(g_val[i_u].toarray() - g_val[i_v].toarray())**2            
 
@@ -633,7 +645,7 @@ Given a dataset `d`, apply the fitted transform to it
         if scalerangeHi < max_w_wt:
             solZero = self._doQPSolve(P1, q1, g1, h1, nPointPairs, 0, alpha, beta)
             scalerangeZero = (max(solZero["w"])/np.nanmean(solZero["w"]))
-            if scalerangeZero < max_w_wt:
+            if scalerangeZero < max_w_wt and int(self._params.get("require_nonzero_lambda",0))==0:
                 return solZero, {"lambda": 0, "alpha": alpha, "beta": beta} 
             else:
                 return solHi, {"lambda": 1/hi, "alpha": alpha, "beta": beta}

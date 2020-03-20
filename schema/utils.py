@@ -178,7 +178,7 @@ Utility class for Slide-Seq (Rodriques et al., Science 2019) data. Most methods 
     """
     
     @staticmethod
-    def loadRawData(datadir, puckid, num_nmf_factors=100):
+    def loadRawData(datadir, puckid, num_nmf_factors=100, prep_for_benchmarking=False):
         """
 Load data for a particular puck, clean it up a bit and store as AnnData. For later use, also performs a NMF and stores those.
 Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
@@ -232,20 +232,24 @@ Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
         
         #slide-seq authors normalize to have sum=1 across each bead, rather than 1e6
         cval = counts2_umis[counts2_umis>UMI_threshold]
-        counts2 = counts2.divide(cval, axis=0) #np.true_divide(counts2, counts2_umis[:,None])
-        #counts2 = np.true_divide(counts2, counts2_umis[:,None])
+        if not prep_for_benchmarking:
+            counts2 = counts2.divide(cval, axis=0) #np.true_divide(counts2, counts2_umis[:,None])
+            #counts2 = np.true_divide(counts2, counts2_umis[:,None])
                 
-        # this is also a little unusual, but I'm following their practice
-        counts2.iloc[:,:] = StandardScaler(with_mean=False).fit_transform(counts2.values)
-        print("Flag 314.0553 ", counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
+            # this is also a little unusual, but I'm following their practice
+            counts2.iloc[:,:] = StandardScaler(with_mean=False).fit_transform(counts2.values)
+            print("Flag 314.0553 ", counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
         
         coords2 = df_merged.loc[ df_merged.barcode.isin(counts2.index), ["barcode","xcoord","ycoord"]].copy(deep=True)
         coords2 = coords2.set_index('barcode') #.drop('barcode', axis=1)
         print("Flag 314.0555 ", coords2.shape,isinstance(coords2, pd.DataFrame))
-
+        
         ok_barcodes = set(coords2.index) & set(counts2.index) & set(clstrs.index)
         print("Flag 314.060 ", coords2.shape, counts2.shape, clstrs.shape, len(ok_barcodes))
                 
+        if prep_for_benchmarking:
+            return (counts2[counts2.index.isin(ok_barcodes)].sort_index(), coords2[coords2.index.isin(ok_barcodes)].sort_index(), clstrs[clstrs.index.isin(ok_barcodes)].sort_index())
+
         ## do NMF
         K1 = num_nmf_factors
         listK1 = ["P{}".format(i+1) for i in range(K1)]
@@ -657,177 +661,6 @@ Given a peak, get its position vis-a-vis the genes in the genome
         return pos
 
 
-    @staticmethod
-    def fpeak_0_500(pos):
-        """
-        peak ends within 500bp upstream of gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,2]>=0) & 
-                         (pos[:,2] < 5e2)), 1, 0)
-
-    @staticmethod
-    def fpeak_500_2e3(pos):
-        """
-        peak ends within 500-2000bp upstream of gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,2]>0) & 
-                         (pos[:,2]> 5e2) & 
-                         (pos[:,2] <= 2e3)), 1, 0)
-
-    @staticmethod
-    def fpeak_2e3_20e3(pos):
-        """
-        peak ends within 2k-20kb  upstream of gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,2]>0) & 
-                         (pos[:,2]> 2e3) & 
-                         (pos[:,2] <= 20e3)), 1, 0)
-
-    @staticmethod
-    def fpeak_20e3_100e3(pos):
-        """
-        peak ends within 20-100kb upstream of gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,2]>0) & 
-                         (pos[:,2]> 20e3) & 
-                         (pos[:,2] <= 100e3)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_100e3_1e6(pos):
-        """
-        peak ends within 100kb-1Mb upstream of gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,2]>0) & 
-                         (pos[:,2]> 100e3) & 
-                         (pos[:,2] <= 1e6)), 1, 0)
-
-    @staticmethod
-    def fpeak_1e6_10e6(pos):
-        """
-        peak ends within 1Mb-10Mb upstream of gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,2]>0) & 
-                         (pos[:,2]> 1e6) & 
-                         (pos[:,2] <= 10e6)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_10e6_20e6(pos):
-        """
-        peak ends within 10Mb-20Mb upstream of gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,2]>0) & 
-                         (pos[:,2]> 10e6) & 
-                         (pos[:,2] <= 20e6)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_crossing_in(pos):
-        """
-        peak spans the TSS of the gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,1]>0) & 
-                         (pos[:,2]<=0) &
-                         (pos[:,4]>0)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_inside(pos):
-        """
-        peak is between the start and end of the gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,1]<0) & 
-                         (pos[:,2]<0) & 
-                         (pos[:,3]>0) & 
-                         (pos[:,4]>0)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_crossing_out(pos):
-        """
-        peak is spands the txend of the gene
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,1]<0) & 
-                         (pos[:,2]<0) & 
-                         (pos[:,3]>0) & 
-                         (pos[:,4]<0)), 1, 0)
-
-
-
-    @staticmethod
-    def fpeak_behind_1e3(pos):
-        """
-        peak starts within 1kb of gene end
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,3]<0) & 
-                         (-pos[:,3] < 1e3)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_behind_1e3_20e3(pos):
-        """
-        peak starts within 1-20kb of gene end
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,3]<0) & 
-                         (-pos[:,3] > 1e3) &
-                         (-pos[:,3] < 20e3)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_behind_20e3_100e3(pos):
-        """
-        peak starts within 20kb-100kb of gene end
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,3]<0) & 
-                         (-pos[:,3] > 20e3) &
-                         (-pos[:,3] < 100e3)), 1, 0)
-
-    @staticmethod
-    def fpeak_behind_100e3_1e6(pos):
-        """
-        peak starts within 100kb-1Mb of gene end
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,3]<0) & 
-                         (-pos[:,3] > 100e3) &
-                         (-pos[:,3] < 1e6)), 1, 0)
-
-
-    @staticmethod
-    def fpeak_behind_1e6_10e6(pos):
-        """
-        peak starts within 1Mb-10Mb of gene end
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,3]<0) & 
-                         (-pos[:,3] > 1e6) &
-                         (-pos[:,3] < 10e6)), 1, 0)
-
-    
-    @staticmethod
-    def fpeak_behind_10e6_20e6(pos):
-        """
-        peak starts within 10Mb-20Mb of gene end
-        """
-        return np.where(((pos[:,0]> 0) & 
-                         (pos[:,3]<0) & 
-                         (-pos[:,3] > 10e6) &
-                         (-pos[:,3] < 20e6)), 1, 0)
-
     
     @staticmethod
     def fpeak_rbf_500(pos):
@@ -929,23 +762,7 @@ Given a peak, get its position vis-a-vis the genes in the genome
     
 
 
-    fpeak_list_all = [ (fpeak_0_500.__func__, "fpeak_0_500"),
-                       (fpeak_500_2e3.__func__, "fpeak_500_2e3"),
-                       (fpeak_2e3_20e3.__func__, "fpeak_2e3_20e3"),
-                       (fpeak_20e3_100e3.__func__, "fpeak_20e3_100e3"),
-                       (fpeak_100e3_1e6.__func__, "fpeak_100e3_1e6"),
-                       (fpeak_1e6_10e6.__func__, "fpeak_1e6_10e6"),
-                       (fpeak_10e6_20e6.__func__, "fpeak_10e6_20e6"),
-                       (fpeak_crossing_in.__func__, "fpeak_crossing_in"),
-                       (fpeak_inside.__func__, "fpeak_inside"),
-                       (fpeak_crossing_out.__func__, "fpeak_crossing_out"),
-                       (fpeak_behind_1e3.__func__, "fpeak_behind_1e3"),
-                       (fpeak_behind_1e3_20e3.__func__, "fpeak_behind_1e3_20e3"),
-                       (fpeak_behind_20e3_100e3.__func__, "fpeak_behind_20e3_100e3"),
-                       (fpeak_behind_100e3_1e6.__func__, "fpeak_behind_100e3_1e6"),
-                       (fpeak_behind_1e6_10e6.__func__, "fpeak_behind_1e6_10e6"),
-                       (fpeak_behind_10e6_20e6.__func__, "fpeak_behind_10e6_20e6"),
-                       (fpeak_rbf_500.__func__, "fpeak_rbf_500"),
+    fpeak_list_all = [ (fpeak_rbf_500.__func__, "fpeak_rbf_500"),
                        (fpeak_rbf_1e3.__func__, "fpeak_rbf_1e3"),
                        (fpeak_rbf_5e3.__func__, "fpeak_rbf_5e3"),
                        (fpeak_rbf_20e3.__func__, "fpeak_rbf_20e3"),
