@@ -15,31 +15,7 @@ import os, sys, string, fileinput, glob, re, math, itertools, functools, copy, l
 import sklearn.decomposition, sklearn.preprocessing, sklearn.linear_model, sklearn.covariance
 import cvxopt
 
-
-schema_loglevel = logging.WARNING  #can be logging.INFO, .DEBUG or .ERROR
-
-
-def schema_debug(*args, **kwargs):
-    if schema_loglevel <= logging.DEBUG: print("DEBUG: ", *args, **kwargs)
-
-def schema_info(*args, **kwargs):
-    if schema_loglevel <= logging.INFO: print("INFO: ", *args, **kwargs)
-
-def schema_warning(*args, **kwargs):
-    if schema_loglevel <= logging.WARNING: print("WARNING: ", *args, **kwargs)
-
-def schema_error(*args, **kwargs):
-    if schema_loglevel <= logging.ERROR: print("ERROR: ", *args, **kwargs)
-
-    
-########## for maintenance ###################
-# def noop(*args, **kwargs):
-#     pass
-#
-# logging.info = print
-# logging.debug = noop
-##############################################
-
+from base_config import *
 
 class SchemaQP:
     """Schema is a general algorithm for integrating heterogeneous data 
@@ -98,13 +74,13 @@ class SchemaQP:
                         high values (> 0.80) will probably work best.
 
 
-`w_max_to_avg`: `float` >1, optional (default: 100)
+`w_max_to_avg`: `float` >1, optional (default: 1000)
 
      Sets the upper-bound on the ratio of w's largest element to w's avg element.
      Making it large will allow for more severe transformations.
 
-    RECOMMENDED VALUES: Start by keeping this constraint very loose; the default value (100) does
-                        this, ensuring that min_desired_corr remains the binding constraint.
+    RECOMMENDED VALUES: We recommend keeping this parameter at its default value (1000); that keep this constraint 
+                        very loose and ensures that  min_desired_corr remains the binding constraint.
                         Later, as you get a better sense for the right min_desired_corr values
                         for your data, you can experiment with this too.
 
@@ -155,14 +131,14 @@ class SchemaQP:
     """
 
     
-    def __init__(self, min_desired_corr, w_max_to_avg=100, params={}, mode="affine"):
+    def __init__(self, min_desired_corr=0.99, w_max_to_avg=1000, params={}, mode="affine"):
+        if w_max_to_avg is not None and w_max_to_avg <= 1: raise ValueError("'w_max_to_avg' must be either None or greater than 1")
         if not (mode in ['scale', 'affine']): raise ValueError("'mode' must be one of ['affine','scale']")
-        if not (w_max_to_avg > 1): raise ValueError("'w_max_to_avg' must be greater than 1")
         if not (0 <= min_desired_corr < 1): raise ValueError("'min_desired_corr' must be in the range [0,1)") 
 
         self._mode = mode
         self._w_max_to_avg = w_max_to_avg
-        print("Flag 456.10  ", self._w_max_to_avg)
+        schema_info ("Flag 456.10  ", self._w_max_to_avg)
         self._min_desired_corr = min_desired_corr
         self._std_scaler = None
         self._decomp_mdl = None
@@ -466,10 +442,10 @@ Given a dataset `d`, apply the fitted transform to it
             if g_type == "categorical":
                 dg = 1.0*( g_val[i_u] != g_val[i_v]) #1.0*( g_val[i_u].toarray() != g_val[i_v].toarray())
             elif g_type == "feature_vector":
-                print (g_val[i_u].shape, g_val[i_v].shape)
+                schema_info ("Flag 201.82 ", g_val[i_u].shape, g_val[i_v].shape)
                 dg = np.ravel(np.sum(np.power(g_val[i_u].astype(np.float64) - g_val[i_v].astype(np.float64),2), axis=1))
             elif g_type == "feature_vector_categorical":
-                print (g_val[i_u].shape, g_val[i_v].shape)
+                schema_info ("Flag 201.84 ", g_val[i_u].shape, g_val[i_v].shape)
                 dg = np.ravel(np.sum((g_val[i_u] == g_val[i_v]).astype(np.float64), axis=1))
             else:  #numeric
                 dg = (g_val[i_u].astype(np.float64) - g_val[i_v].astype(np.float64))**2   #(g_val[i_u].toarray() - g_val[i_v].toarray())**2            
@@ -515,10 +491,8 @@ Given a dataset `d`, apply the fitted transform to it
 
     def _computeSolutionFeatures(self, w, P1, q1, g1, nPointPairs):
         K = len(w)
-        #print ("Flag 569.20 ", w.shape, P1.shape, q1.shape, g1.shape, np.reshape(w,(1,K)).shape)
         
         newmetric_sd = np.sqrt( np.matmul(np.matmul(np.reshape(w,(1,K)), P1), np.reshape(w,(K,1)))[0] / nPointPairs)
-        #oldnew_corr = (np.dot(w,g1)/nPointPairs)/newmetric_sd
         oldnew_corr = ((np.dot(w,g1)/nPointPairs)/newmetric_sd) / (self._params["d0_orig_transformed_corr"])
 
         groupcorr_score = (np.dot(w,q1)/nPointPairs)/newmetric_sd
@@ -612,7 +586,7 @@ Given a dataset `d`, apply the fitted transform to it
             try:
                 soln, param_settings = self._iterateQPLevel2(P1, q1, g1, h1, nPointPairs, max_w_wt, alpha, beta)
             except Exception as e:
-                schema_warning ("Flag 110.50 crashed in _iterateQPLevel2. Trying to continue...", P1.size, q1.size, g1.size, max_w_wt, alpha, beta)
+                schema_info ("Flag 110.50 crashed in _iterateQPLevel2. Trying to continue...", P1.size, q1.size, g1.size, max_w_wt, alpha, beta)
                 schema_info(e)
                 beta *= 0.5
                 continue
@@ -625,7 +599,7 @@ Given a dataset `d`, apply the fitted transform to it
         try:
             solutionList.sort(key=lambda v: v[0]) #find the highest score
 
-            schema_info("Flag 110.60 beta: ", "NONE" if not solutionList else self._summarizeSoln(solutionList[0][1], solutionList[0][2]))
+            schema_debug ("Flag 110.60 beta: ", "NONE" if not solutionList else self._summarizeSoln(solutionList[0][1], solutionList[0][2]))
             return (solutionList[0][1], solutionList[0][2])
         except:
             #raise
@@ -708,7 +682,7 @@ Given a dataset `d`, apply the fitted transform to it
         if soln is None:
             raise Exception("Couldn't find valid solution to QP")
         
-        schema_info ("Final solution: ", self._summarizeSoln(soln, free_params))
+        schema_info ("Flag 102.40 Final solution: ", self._summarizeSoln(soln, free_params))
         return soln["w"].ravel(), self._summarizeSoln(soln, free_params)
 
     
@@ -741,7 +715,11 @@ Given a dataset `d`, apply the fitted transform to it
         print('Running change-of-basis transform ({0}, {1} components)...'.format(model_type, ncomp), end='', flush=True)
         
         if model_type=="pca":
-            self._decomp_mdl = sklearn.decomposition.PCA(n_components=ncomp, whiten=do_whiten)
+            if not scipy.sparse.issparse(dx1):
+                self._decomp_mdl = sklearn.decomposition.PCA(n_components=ncomp, whiten=do_whiten)
+            else:
+                self._decomp_mdl = sklearn.decomposition.TruncatedSVD(n_components=ncomp)
+                schema_warning("Using TruncatedSVD instead of PCA because input is a sparse matrix. do_whiten arguments will be ignored")
             dx = self._decomp_mdl.fit_transform(dx1)
             
         elif model_type=="nmf":

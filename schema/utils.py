@@ -3,7 +3,7 @@
 import pandas as pd
 import numpy as np
 import scipy, sklearn, os, sys, string, fileinput, glob, re, math, itertools, functools, copy, multiprocessing
-import scipy.stats, sklearn.decomposition, sklearn.preprocessing, sklearn.covariance
+import scipy.stats, sklearn.decomposition, sklearn.preprocessing, sklearn.covariance, sklearn.neighbors
 from scipy.stats import describe
 from scipy import sparse
 import os.path
@@ -13,6 +13,28 @@ from sklearn.preprocessing import normalize
 from collections import defaultdict
 
 
+from base_config import *
+
+
+
+
+def get_louvain_clustering(mtx, num_neighbors=30):
+        import igraph
+        gNN = igraph.Graph()
+        N = mtx.shape[0]
+        gNN.add_vertices(N)
+        schema_debug("Flag 192.30 ", mtx.shape)
+        mNN = scipy.sparse.coo_matrix( sklearn.neighbors.kneighbors_graph(mtx, num_neighbors))
+        schema_debug("Flag 192.40 ", mNN.shape)
+        gNN.add_edges([ (i,j) for i,j in zip(mNN.row, mNN.col)])
+        schema_debug("Flag 192.50 ")
+        import leidenalg as la
+        p1 = la.find_partition(gNN, la.ModularityVertexPartition)
+        schema_debug("Flag 192.60 ")
+        return   np.array([a for a in p1.membership])
+
+
+    
 class ScatterPlotAligner:
     """
     When seeded with a Mx2 matrix (that will be used for a scatter plot), 
@@ -187,7 +209,7 @@ Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
         
         puckdir = "{0}/Puck_{1}".format(datadir, puckid)
         beadmapdir = max(glob.glob("{0}/BeadMapping_*-*_????".format(puckdir)), key=os.path.getctime)
-        print("Flag 314.001 ", beadmapdir)
+        schema_debug("Flag 314.001 ", beadmapdir)
         
         # gene exp
         gexp_file = "{0}/MappedDGEForR.csv".format(beadmapdir)
@@ -197,27 +219,26 @@ Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
         dge = dge.T
         dge = dge.reset_index()
         dge = dge.rename(columns={'index':'barcode'})
-        print("Flag 314.010 ", dge.shape, dge.columns)
+        schema_debug("Flag 314.010 ", dge.shape, dge.columns)
         
         # spatial location
         beadloc_file = "{0}/BeadLocationsForR.csv".format(beadmapdir)
         coords = fast_csv_read(beadloc_file, header = 0)
         coords = coords.rename(columns={'Barcodes':'barcode'})
         coords = coords.rename(columns={'barcodes':'barcode'})
-        print("Flag 314.020 ", coords.shape, coords.columns)
+        schema_debug("Flag 314.020 ", coords.shape, coords.columns)
         
         # Slide-Seq cluster assignments
         atlas_clusters_file = "{0}/AnalogizerClusterAssignments.csv".format(beadmapdir)
         clstrs = pd.read_csv(atlas_clusters_file, index_col=None)
-        print (clstrs.columns)
         assert list(clstrs.columns) == ["Var1","x"]
         clstrs.columns = ["barcode","atlas_cluster"]
         clstrs = clstrs.set_index("barcode")
-        print("Flag 314.030 ", clstrs.shape, clstrs.columns)
+        schema_debug("Flag 314.030 ", clstrs.shape, clstrs.columns)
         
         df_merged = dge.merge(coords, right_on='barcode', left_on='barcode')
         df_merged = df_merged[ df_merged.barcode.isin(clstrs.index)]
-        print("Flag 314.040 ", df_merged.shape, df_merged.columns)
+        schema_debug("Flag 314.040 ", df_merged.shape, df_merged.columns)
             
         # remove sparse gene exp
         counts = df_merged.drop(['xcoord', 'ycoord'], axis=1)
@@ -228,7 +249,7 @@ Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
         UMI_threshold = 5
         counts2_umis = counts2.sum(axis=1).values
         counts2 = counts2.loc[counts2_umis > UMI_threshold,:]
-        print("Flag 314.0552 ", counts.shape, counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
+        schema_debug("Flag 314.0552 ", counts.shape, counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
         
         #slide-seq authors normalize to have sum=1 across each bead, rather than 1e6
         cval = counts2_umis[counts2_umis>UMI_threshold]
@@ -238,14 +259,14 @@ Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
                 
             # this is also a little unusual, but I'm following their practice
             counts2.iloc[:,:] = StandardScaler(with_mean=False).fit_transform(counts2.values)
-            print("Flag 314.0553 ", counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
+            schema_debug("Flag 314.0553 ", counts2.shape, counts2_umis.shape,isinstance(counts2, pd.DataFrame))
         
         coords2 = df_merged.loc[ df_merged.barcode.isin(counts2.index), ["barcode","xcoord","ycoord"]].copy(deep=True)
         coords2 = coords2.set_index('barcode') #.drop('barcode', axis=1)
-        print("Flag 314.0555 ", coords2.shape,isinstance(coords2, pd.DataFrame))
+        schema_debug("Flag 314.0555 ", coords2.shape,isinstance(coords2, pd.DataFrame))
         
         ok_barcodes = set(coords2.index) & set(counts2.index) & set(clstrs.index)
-        print("Flag 314.060 ", coords2.shape, counts2.shape, clstrs.shape, len(ok_barcodes))
+        schema_debug("Flag 314.060 ", coords2.shape, counts2.shape, clstrs.shape, len(ok_barcodes))
                 
         if prep_for_benchmarking:
             return (counts2[counts2.index.isin(ok_barcodes)].sort_index(), coords2[coords2.index.isin(ok_barcodes)].sort_index(), clstrs[clstrs.index.isin(ok_barcodes)].sort_index())
@@ -255,10 +276,10 @@ Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
         listK1 = ["P{}".format(i+1) for i in range(K1)]
         random_state = 17 #for repeatability, a fixed value
         model1 = sklearn.decomposition.NMF(n_components= K1, init='random', random_state = random_state, alpha = 0, l1_ratio = 0)
-        Ho = model1.fit_transform(counts2.values)
+        Ho = model1.fit_transform(counts2.values)  #yes, slideseq code had Ho and Wo mixed up. Just following their lead here. 
         Wo = model1.components_
 
-        print("Flag 314.070 ", Ho.shape, Wo.shape)
+        schema_debug("Flag 314.070 ", Ho.shape, Wo.shape)
         
         Ho_norm = StandardScaler(with_mean=False).fit_transform(Ho)
         Ho_norm = pd.DataFrame(Ho_norm)
@@ -271,14 +292,14 @@ Borrows code from autoNMFreg_windows.py, provided with the Slide-Seq raw data.
         Ho_norm = Ho_norm[Ho_norm.index.isin(ok_barcodes)]
         Ho_norm = Ho_norm / Ho_norm.std(axis=0)
 
-        print("Flag 314.080 ", Ho_norm.shape, Wo.shape)
+        schema_debug("Flag 314.080 ", Ho_norm.shape, Wo.shape)
         
         genexp = counts2[ counts2.index.isin(ok_barcodes)].sort_index()
         beadloc = coords2[ coords2.index.isin(ok_barcodes)].sort_index()
         clstrs = clstrs[ clstrs.index.isin(ok_barcodes)].sort_index()
         Ho_norm = Ho_norm.sort_index()
 
-        print("Flag 314.090 ", genexp.shape, beadloc.shape, clstrs.shape, Ho_norm.shape, genexp.index[:5], beadloc.index[:5])
+        schema_debug("Flag 314.090 ", genexp.shape, beadloc.shape, clstrs.shape, Ho_norm.shape, genexp.index[:5], beadloc.index[:5])
 
         beadloc["atlas_cluster"] = clstrs["atlas_cluster"]
         
@@ -381,18 +402,18 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
                     if f_mdlty_filter is not None:
                         mdlty_idx = (mdlty.apply(f_mdlty_filter, axis=1, result_type="reduce")).values
 
-                    print ("Flag 324.112 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
+                    schema_debug ("Flag 324.112 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
                     
                     mdlty["gene_id"] = mdlty["gene_id"].apply(lambda v: v.split('.')[0])
                     mdlty_idx[~(mdlty["gene_id"].isin(dref["ensembl_id"]))] = False
 
-                    print ("Flag 324.113 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
+                    schema_debug ("Flag 324.113 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
                     
                     mdlty["index"] = np.arange(mdlty.shape[0])
                     mdlty = (pd.merge(mdlty, dref, left_on="gene_id", right_on="ensembl_id", how="left"))
                     mdlty = mdlty.drop_duplicates("index").sort_values("index").reset_index(drop=True).drop(columns=["index"])
 
-                    print ("Flag 324.114 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
+                    schema_debug ("Flag 324.114 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
 
                     def f_is_standard_chromosome(v):
                         try:
@@ -403,7 +424,7 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
 
                     mdlty_idx[~(mdlty["chr"].apply(f_is_standard_chromosome))] = False
 
-                    print ("Flag 324.115 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
+                    schema_debug ("Flag 324.115 filtered {0}:{1}:{2} mdlty".format(len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
                     
                 else:                    
                     mdlty_idx = np.full((mdlty.shape[0],),True)
@@ -418,10 +439,10 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
 
                 data = scipy.io.mmread(glob.glob("{0}/{1}*_{2}_count.txt".format(path, gsm, typestr))[0]).T.tocsr().astype(np.float_)
 
-                print ("Flag 324.12 read {0} cells, {1} mdlty, {2} data".format(cells.shape, mdlty.shape, data.shape))
+                schema_debug ("Flag 324.12 read {0} cells, {1} mdlty, {2} data".format(cells.shape, mdlty.shape, data.shape))
 
 
-                print ("Flag 324.13 filtered  {0}:{1}:{2} cells, {3}:{4}:{5} mdlty".format( len(cell_idx), np.sum(cell_idx), cell_idx.shape, len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
+                schema_debug ("Flag 324.13 filtered  {0}:{1}:{2} cells, {3}:{4}:{5} mdlty".format( len(cell_idx), np.sum(cell_idx), cell_idx.shape, len(mdlty_idx), np.sum(mdlty_idx), mdlty_idx.shape))
                     
                 data = data[cell_idx, :]
                 data = data[:, mdlty_idx]
@@ -429,16 +450,16 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
                 cells = cells[cell_idx].reset_index(drop=True)
                 mdlty = mdlty[mdlty_idx].reset_index(drop=True)
 
-                print ("Flag 324.14 filtered down to {0} cells, {1} mdlty, {2} data".format(cells.shape, mdlty.shape, data.shape))
+                schema_debug ("Flag 324.14 filtered down to {0} cells, {1} mdlty, {2} data".format(cells.shape, mdlty.shape, data.shape))
                 
 
-                print ("Flag 324.15 filtered down to {0} cells, {1} mdlty, {2} data".format(cells.shape, mdlty.shape, data.shape))
+                schema_debug ("Flag 324.15 filtered down to {0} cells, {1} mdlty, {2} data".format(cells.shape, mdlty.shape, data.shape))
                 
                 sortidx = np.argsort(cells['sample'].values)
                 cells = cells.iloc[sortidx,:].reset_index(drop=True)
                 data = data[sortidx, :]
 
-                print ("Flag 324.17 \n {0} \n {1}".format( cells.head(2), data[:2,:2]))
+                schema_debug ("Flag 324.17 \n {0} \n {1}".format( cells.head(2), data[:2,:2]))
                        
                 datasets.append((nm, typestr, data, cells, mdlty))
                 
@@ -449,7 +470,7 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
                 #raise ValueError('{0} could not be read in {1}'.format(nm, path))
 
         common_cells = list(set.intersection(*cell_sets))
-        print ("Flag 324.20 got {0} common cells {1}".format( len(common_cells), common_cells[:10]))
+        schema_debug ("Flag 324.20 got {0} common cells {1}".format( len(common_cells), common_cells[:10]))
 
         def logcpm(dx):
             libsizes = 1e-6 + np.sum(dx, axis=1)
@@ -466,7 +487,7 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
             nm, typestr, data, cells, mdlty = dx
             
             cidx = np.in1d(cells["sample"].values, common_cells)
-            print ("Flag 324.205 got {0} {1} {2} {3}".format( nm, cells.shape, len(cidx), np.sum(cidx)))
+            schema_debug ("Flag 324.205 got {0} {1} {2} {3}".format( nm, cells.shape, len(cidx), np.sum(cidx)))
                     
             data = data[cidx,:]
             cells = cells.iloc[cidx,:].reset_index(drop=True)
@@ -478,7 +499,7 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
                 adata = AnnData(X = data, obs = cells.copy(deep=True), var = mdlty.copy(deep=True))
                 adata.uns["names"] = []
 
-                print ("Flag 324.22 got X {0} obs {1} var {2} uns {3}".format( adata.X.shape, adata.obs.shape, adata.var.shape, list(adata.uns.keys())))
+                schema_debug ("Flag 324.22 got X {0} obs {1} var {2} uns {3}".format( adata.X.shape, adata.obs.shape, adata.var.shape, list(adata.uns.keys())))
             else:
                 for c in cells.columns:
                     if c in adata.obs.columns: continue
@@ -493,7 +514,7 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
             adata.uns["names"].append(nm)
             adata.uns[nm + ".type"] = typestr
             adata.var_names_make_unique()
-            print ("Flag 324.25 got X {0} obs {1} var {2} uns {3}".format( adata.X.shape, adata.obs.shape, adata.var.shape, list(adata.uns.keys())))
+            schema_debug ("Flag 324.25 got X {0} obs {1} var {2} uns {3}".format( adata.X.shape, adata.obs.shape, adata.var.shape, list(adata.uns.keys())))
                    
         return adata
 
@@ -506,9 +527,9 @@ AnnData object where the cells are rows in X, the columns of dataset #1 are in .
         adata = sc.read(fpath)
         for k in adata.uns.keys():
             if k.endswith(".var") and isinstance(adata.uns[k], np.ndarray):
-                print("Flag 343.100 ", k, adata.uns.keys(), type(adata.uns[k]))
+                schema_debug("Flag 343.100 hello", k, adata.uns.keys(), type(adata.uns[k]))
                 adata.uns[k] = pd.DataFrame(adata.uns[k], index= adata.uns[k + ".index"], columns = adata.uns[k + ".columns"])
-                print("Flag 343.102 ", k, adata.uns.keys(), type(adata.uns[k]))
+                schema_debug("Flag 343.102 ", k, adata.uns.keys(), type(adata.uns[k]))
                 for c in  adata.uns[k].columns:
                     if c in ["id","start","end"]:
                         adata.uns[k][c] = adata.uns[k][c].astype(int)
@@ -570,7 +591,7 @@ copy of filtered anndata
          
         def logcpm(dx):
             libsizes = 1e-6 + np.sum(dx, axis=1)
-            print ("Flag 3343.10 ",  libsizes.shape, libsizes.sum())
+            schema_debug ("Flag 3343.10 ",  libsizes.shape, libsizes.sum())
             dxout = dx #copy.deepcopy(dx)
             for i in range(dxout.shape[0]):
                 i0,i1 = dxout.indptr[i], dxout.indptr[i+1]
@@ -637,7 +658,7 @@ Given a peak, get its position vis-a-vis the genes in the genome
     gVar.shape[0] x 5 nd-array, with 5 numbers describing the peak's posn re the gene (see code)
         """
         pchr, pstart, pend = peak
-        print ("Flag 321.10012 ", peak)
+        schema_debug ("Flag 321.10012 ", peak)
         pchr = (str(pchr)).replace("chr","")
 
 
@@ -660,6 +681,177 @@ Given a peak, get its position vis-a-vis the genes in the genome
         # pos[:,4] = np.where(gVar["strand"]=="+", pend-gVar["txend"], gVar["txstart"]-pstart)
         return pos
 
+
+    @staticmethod
+    def fpeak_0_500(pos):
+        """
+        peak ends within 500bp upstream of gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,2]>=0) & 
+                         (pos[:,2] < 5e2)), 1, 0)
+
+    @staticmethod
+    def fpeak_500_2e3(pos):
+        """
+        peak ends within 500-2000bp upstream of gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,2]>0) & 
+                         (pos[:,2]> 5e2) & 
+                         (pos[:,2] <= 2e3)), 1, 0)
+
+    @staticmethod
+    def fpeak_2e3_20e3(pos):
+        """
+        peak ends within 2k-20kb  upstream of gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,2]>0) & 
+                         (pos[:,2]> 2e3) & 
+                         (pos[:,2] <= 20e3)), 1, 0)
+
+    @staticmethod
+    def fpeak_20e3_100e3(pos):
+        """
+        peak ends within 20-100kb upstream of gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,2]>0) & 
+                         (pos[:,2]> 20e3) & 
+                         (pos[:,2] <= 100e3)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_100e3_1e6(pos):
+        """
+        peak ends within 100kb-1Mb upstream of gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,2]>0) & 
+                         (pos[:,2]> 100e3) & 
+                         (pos[:,2] <= 1e6)), 1, 0)
+
+    @staticmethod
+    def fpeak_1e6_10e6(pos):
+        """
+        peak ends within 1Mb-10Mb upstream of gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,2]>0) & 
+                         (pos[:,2]> 1e6) & 
+                         (pos[:,2] <= 10e6)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_10e6_20e6(pos):
+        """
+        peak ends within 10Mb-20Mb upstream of gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,2]>0) & 
+                         (pos[:,2]> 10e6) & 
+                         (pos[:,2] <= 20e6)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_crossing_in(pos):
+        """
+        peak spans the TSS of the gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,1]>0) & 
+                         (pos[:,2]<=0) &
+                         (pos[:,4]>0)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_inside(pos):
+        """
+        peak is between the start and end of the gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,1]<0) & 
+                         (pos[:,2]<0) & 
+                         (pos[:,3]>0) & 
+                         (pos[:,4]>0)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_crossing_out(pos):
+        """
+        peak is spands the txend of the gene
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,1]<0) & 
+                         (pos[:,2]<0) & 
+                         (pos[:,3]>0) & 
+                         (pos[:,4]<0)), 1, 0)
+
+
+
+    @staticmethod
+    def fpeak_behind_1e3(pos):
+        """
+        peak starts within 1kb of gene end
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,3]<0) & 
+                         (-pos[:,3] < 1e3)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_behind_1e3_20e3(pos):
+        """
+        peak starts within 1-20kb of gene end
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,3]<0) & 
+                         (-pos[:,3] > 1e3) &
+                         (-pos[:,3] < 20e3)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_behind_20e3_100e3(pos):
+        """
+        peak starts within 20kb-100kb of gene end
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,3]<0) & 
+                         (-pos[:,3] > 20e3) &
+                         (-pos[:,3] < 100e3)), 1, 0)
+
+    @staticmethod
+    def fpeak_behind_100e3_1e6(pos):
+        """
+        peak starts within 100kb-1Mb of gene end
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,3]<0) & 
+                         (-pos[:,3] > 100e3) &
+                         (-pos[:,3] < 1e6)), 1, 0)
+
+
+    @staticmethod
+    def fpeak_behind_1e6_10e6(pos):
+        """
+        peak starts within 1Mb-10Mb of gene end
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,3]<0) & 
+                         (-pos[:,3] > 1e6) &
+                         (-pos[:,3] < 10e6)), 1, 0)
+
+    
+    @staticmethod
+    def fpeak_behind_10e6_20e6(pos):
+        """
+        peak starts within 10Mb-20Mb of gene end
+        """
+        return np.where(((pos[:,0]> 0) & 
+                         (pos[:,3]<0) & 
+                         (-pos[:,3] > 10e6) &
+                         (-pos[:,3] < 20e6)), 1, 0)
 
     
     @staticmethod
@@ -762,7 +954,23 @@ Given a peak, get its position vis-a-vis the genes in the genome
     
 
 
-    fpeak_list_all = [ (fpeak_rbf_500.__func__, "fpeak_rbf_500"),
+    fpeak_list_all = [ (fpeak_0_500.__func__, "fpeak_0_500"),
+                       (fpeak_500_2e3.__func__, "fpeak_500_2e3"),
+                       (fpeak_2e3_20e3.__func__, "fpeak_2e3_20e3"),
+                       (fpeak_20e3_100e3.__func__, "fpeak_20e3_100e3"),
+                       (fpeak_100e3_1e6.__func__, "fpeak_100e3_1e6"),
+                       (fpeak_1e6_10e6.__func__, "fpeak_1e6_10e6"),
+                       (fpeak_10e6_20e6.__func__, "fpeak_10e6_20e6"),
+                       (fpeak_crossing_in.__func__, "fpeak_crossing_in"),
+                       (fpeak_inside.__func__, "fpeak_inside"),
+                       (fpeak_crossing_out.__func__, "fpeak_crossing_out"),
+                       (fpeak_behind_1e3.__func__, "fpeak_behind_1e3"),
+                       (fpeak_behind_1e3_20e3.__func__, "fpeak_behind_1e3_20e3"),
+                       (fpeak_behind_20e3_100e3.__func__, "fpeak_behind_20e3_100e3"),
+                       (fpeak_behind_100e3_1e6.__func__, "fpeak_behind_100e3_1e6"),
+                       (fpeak_behind_1e6_10e6.__func__, "fpeak_behind_1e6_10e6"),
+                       (fpeak_behind_10e6_20e6.__func__, "fpeak_behind_10e6_20e6"),
+                       (fpeak_rbf_500.__func__, "fpeak_rbf_500"),
                        (fpeak_rbf_1e3.__func__, "fpeak_rbf_1e3"),
                        (fpeak_rbf_5e3.__func__, "fpeak_rbf_5e3"),
                        (fpeak_rbf_20e3.__func__, "fpeak_rbf_20e3"),
@@ -839,11 +1047,11 @@ a   matrix of shape adata.var.shape[0] X len(peak_func_list)
             pXti_positive = (pXti > 0).astype(int)
             pXti_ones = np.ones_like(pXti)
 
-            print ("Flag 2.0008 ",i, flush=True)
+            schema_debug ("Flag 2.0008 ",i, flush=True)
 
             for j,f in enumerate(peak_func_list):
                 distwt = f(v)
-                #print("Flag 2.0010 ", i,j,np.std(distwt), np.mean(distwt)) 
+                #schema_debug("Flag 2.0010 ", i,j,np.std(distwt), np.mean(distwt)) 
                 if np.sum(distwt)>1e-12:
                     if normalize_distwt: distwt = distwt/np.mean(distwt)
                     G = gXt.copy()
@@ -851,7 +1059,7 @@ a   matrix of shape adata.var.shape[0] X len(peak_func_list)
                         G.data *= distwt.repeat(np.diff(G.indptr))
                     except:
                         G = G*distwt[:,None]
-                    # print ("Flag 2.0201 ", len(distwt), np.sum(G.data), G.shape, 
+                    # schema_debug ("Flag 2.0201 ", len(distwt), np.sum(G.data), G.shape, 
                     #        np.sum(gXt.data),
                     #        G.data.shape, len(np.diff(G.indptr)),
                     #       pXt.shape)
@@ -863,10 +1071,69 @@ a   matrix of shape adata.var.shape[0] X len(peak_func_list)
                     gw_ones = G.dot(pXti_ones).ravel()
                     g2p_wts[:,j] += gw_ones/nCells
 
-                    # print ("Flag 2.0320 ", G.shape, distwt.shape, gXt.shape, pXt.shape, gw.shape, g2p.shape)
+                    # schema_debug ("Flag 2.0320 ", G.shape, distwt.shape, gXt.shape, pXt.shape, gw.shape, g2p.shape)
                 
         return (g2p, g2p_wts)
 
+
+    
+
+
+    @staticmethod
+    def aggregatePeaksByGenes(adata, peak_func, chr_mapping = None):
+        """
+Compute a matrix that is nCells x nGenes with cell [i,j] being expression of peaks around gene[i] in cell [i], 
+         subject to  peak wt as described by f_peak
+
+#### Parameters
+
+`adata` : AnnData object from loadData(...)
+
+`peak_func` : function of the signature `pos: int`
+
+`chr_mapping`:  `4-tuple` 
+
+    Optional argument providing the output of `getChrMapping(..)`, for caching
+
+#### Returns
+ 
+a   matrix of shape adata.shape
+
+        """
+        
+        
+        if chr_mapping is None:
+            gene2chr, chr2genes, peak2chr, chr2peaks = SciCar.getChrMapping(adata)
+        else:
+            gene2chr, chr2genes, peak2chr, chr2peaks = chr_mapping
+
+        nCells, nGenes, nPeaks = adata.shape[0], adata.shape[1], adata.uns["atac.X"].shape[1]
+
+        pX = adata.uns["atac.X"]
+
+        exp_pX = np.exp(pX)  #data was log1p'd before. We'll add the cpm counts and then re-log1p it 
+        gVar = adata.var[["chr","strand","txstart","txend","tss_adj"]]
+        pVar = adata.uns["atac.var"][["chr","start","end"]]
+
+        c2g = np.zeros(nCells, nGenes)
+        c2g_tmp = np.zeros(nCells, nGenes)
+        
+        plist = range(nPeaks)
+
+        for i in plist:
+            c2g_tmp[:] = 0
+            
+            v = SciCar.getPeakPosReGenes(gVar, pVar.values[i,:], gene2chr)
+            c2g_tmp += peak_func(v)
+            p_i =  np.exp(np.ravel(pX[i,:].todense()))
+            c2g_tmp *= p_i[:,None]
+
+            c2g += c2g_tmp
+
+        c2g = np.log1p(c2g)
+        return c2g
+
+    
 
 
 
@@ -882,7 +1149,7 @@ def cmpSpearmanVsPearson(d1, type1="numeric", d2=None, type2=None, nPointPairs=2
         
     if nPointPairs is None: assert nRuns==1
 
-    print ("Flag 676.10 ", N, K1, K2, nPointPairs, type1, type2)
+    schema_debug ("Flag 676.10 ", N, K1, K2, nPointPairs, type1, type2)
     
     corrL = []
 
@@ -899,7 +1166,7 @@ def cmpSpearmanVsPearson(d1, type1="numeric", d2=None, type2=None, nPointPairs=2
             i_u = x.u.values
             i_v = x.v.values
 
-        print ("Flag 676.30 ", i_u.shape, i_v.shape, nr)
+        schema_debug ("Flag 676.30 ", i_u.shape, i_v.shape, nr)
 
         dL = []
         for g_val, g_type in [(d1, type1), (d2, type2)]:
@@ -915,15 +1182,15 @@ def cmpSpearmanVsPearson(d1, type1="numeric", d2=None, type2=None, nPointPairs=2
                 if g_type == "categorical":
                     dgx = 1.0*( g_val[ii_u] != g_val[ii_v]) #1.0*( g_val[i_u].toarray() != g_val[i_v].toarray())
                 elif g_type == "feature_vector":
-                    print (g_val[ii_u].shape, g_val[ii_v].shape)
+                    schema_debug (g_val[ii_u].shape, g_val[ii_v].shape)
                     dgx = np.ravel(np.sum(np.power(g_val[ii_u].astype(np.float64) - g_val[ii_v].astype(np.float64),2), axis=1))
                 else:  #numeric
                     dgx = (g_val[ii_u].astype(np.float64) - g_val[ii_v].astype(np.float64))**2   #(g_val[i_u].toarray() - g_val[i_v].toarray
                 dg.extend(dgx)
-            print ("Flag 676.50 ", g_type, len(dg))
+            schema_debug ("Flag 676.50 ", g_type, len(dg))
             dL.append(np.array(dg))
 
-        print ("Flag 676.60 ")
+        schema_debug ("Flag 676.60 ")
         dg1, dg2 = dL[0], dL[1]
         
         if d2 is None:
@@ -933,7 +1200,15 @@ def cmpSpearmanVsPearson(d1, type1="numeric", d2=None, type2=None, nPointPairs=2
             rp = scipy.stats.pearsonr(dg1, dg2)[0]
             rs = scipy.stats.spearmanr(dg1, dg2)[0]
 
-        print ("Flag 676.80 ", rp, rs)
+        schema_debug ("Flag 676.80 ", rp, rs)
         corrL.append( (rp,rs))
 
     return corrL
+
+
+
+
+
+
+
+
