@@ -15,11 +15,17 @@ Import schema::
 Basic Usage
 ~~~~~~~~~~~
 
-.. module:: schema.schema_qp
+
 .. currentmodule:: schema
 	    
 .. autosummary::
    :toctree: .
 	     
-   schema_qp.SchemaQP
-   schema_qp.SchemaQP.fit
+   schema.SchemaQP
+   schema.SchemaQP.fit
+   schema.SchemaQP.fit_transform
+
+
+
+
+   
