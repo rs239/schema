@@ -1,5 +1,5 @@
-.. module:: schema
-.. automodule:: schema
+.. module:: schema_qp
+.. automodule:: schema_qp
    :noindex:
 	   
 
@@ -15,15 +15,19 @@ Import schema::
 Basic Usage
 ~~~~~~~~~~~
 
+.. toctree::
+   :maxdepth: 2
+   :caption: Contents:
 
+	     
 .. currentmodule:: schema
 	    
 .. autosummary::
    :toctree: .
 	     
-   schema.SchemaQP
-   schema.SchemaQP.fit
-   schema.SchemaQP.fit_transform
+   schema_qp.SchemaQP
+   schema_qp.SchemaQP.fit
+   schema_qp.SchemaQP.fit_transform
 
 
 

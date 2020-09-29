@@ -11,9 +11,9 @@ from datetime import datetime
 import matplotlib  
 matplotlib.use('agg')
 
-sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)) + "/../../schema/"] 
+sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)) + "/../schema/"] 
 
-import schema
+import schema_qp
 
 templates_path = ['_templates']
 
