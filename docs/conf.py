@@ -3,7 +3,7 @@
 # author: Rohit Singh
 ## CREDITS: modeled on scanpy's documentation ( http://scanpy.readthedocs.io)
 
-import os
+import os.path
 import sys
 from pathlib import Path
 from datetime import datetime
@@ -11,7 +11,7 @@ from datetime import datetime
 import matplotlib  
 matplotlib.use('agg')
 
-sys.path[:0] = [os.path.dirname(os.path.absname(__file__)) + "/../../schema/"] 
+sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)) + "/../../schema/"] 
 
 import schema
 
