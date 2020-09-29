@@ -6,7 +6,7 @@ import sys
 templates_path = ['_templates']
 
 project = 'Schema'
-copyright = '2020, Rohit Singh, Brian Hie, Ashwin Narayan & Bonnie Berger'
+copyright = '2020, Rohit Singh, Brian Hie, Ashwin Narayan & Bonnie Berger. '
 source_suffix = '.rst'
 master_doc = 'index'
 

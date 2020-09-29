@@ -12,7 +12,7 @@ Schema - Analyze and Visualize Multi-modal Single-Cell Data
 
 Schema is a Python library for the synthesis and integration of heterogeneous single-cell modalities.
 **It is designed for the case where the modalities have all been assayed for the same cells simultaneously.**
-Some of the analyses that Schema can facilitate include:
+Some of the analyses that you can do with Schema include:
 
   - infer cell types jointly across modalities.
   - identify genes whose expression correlates with the cell state as measured by other modalities.
