@@ -23,7 +23,7 @@ class SchemaQP:
            single-cell biological datasets, but should work in other contexts too.
        This version is based on a Quadratic Programming Framework.
 
-       Source code, API documentation and Examples available at: 
+       Source code available at: 
        https://github.com/rs239/schema 
 
        It is described in the paper “Schema: A general framework for integrating 

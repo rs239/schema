@@ -11,8 +11,7 @@ from datetime import datetime
 import matplotlib  
 matplotlib.use('agg')
 
-HERE = Path(__file__).parent
-sys.path[:0] = [str(HERE.parent), str(HERE / 'extensions')]
+sys.path[:0] = [os.path.dirname(os.path.absname(__file__)) + "/../../schema/"] 
 
 import schema
 
