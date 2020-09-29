@@ -3,6 +3,7 @@
 import os
 import sys
 
+copyright = 'Rohit Singh, Brian Hie, Ashwin Narayan, Bonnie Berger (2020)'
 source_suffix = '.rst'
 master_doc = 'index'
 
