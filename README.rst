@@ -2,7 +2,7 @@
 
 .. |PyPI| image:: https://img.shields.io/pypi/v/schema_learn.svg
    :target: https://pypi.org/project/schema_learn
-.. |Docs| image:: https://readthedocs.com/projects/schema_learn/badge/?version=latest
+.. |Docs| image:: https://readthedocs.com/projects/schema-multimodal/badge/?version=latest
    :target: https://schema-multimodal.readthedocs.io
 ..
 
