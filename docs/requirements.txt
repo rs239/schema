@@ -3,6 +3,7 @@ matplotlib
 pandas
 scipy
 seaborn
+cvxopt
 tables
 tqdm
 scikit-learn
