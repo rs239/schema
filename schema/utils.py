@@ -13,9 +13,7 @@ from sklearn.preprocessing import normalize
 from collections import defaultdict
 
 
-from base_config import *
-
-
+from .base_config import *
 
 
 def get_louvain_clustering(mtx, num_neighbors=30):

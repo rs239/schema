@@ -15,7 +15,7 @@ import os, sys, string, fileinput, glob, re, math, itertools, functools, copy, l
 import sklearn.decomposition, sklearn.preprocessing, sklearn.linear_model, sklearn.covariance
 import cvxopt
 
-from base_config import *
+from .base_config import *
 
 class SchemaQP:
     """Schema is a general algorithm for integrating heterogeneous data 
