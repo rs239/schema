@@ -7,22 +7,27 @@
 
 
 
-Schema - Integrate Multiple Single-Cell Modalities
-===================================================
+Schema - Analyze and Visualize Multi-modal Single-Cell Data
+==========================================================
 
 Schema is a Python library for the synthesis and integration of heterogeneous single-cell modalities.
 **It is designed for the case where the modalities have all been assayed for the same cells simultaneously.**
-Some of the analyses that Schema can facilitate include: joint cell type inference across modalities, identification of differentially expressed genes, spatial transcriptomics analyses. 
-Moreover, Schema offers support for simultaneous incorporation of multiple modalities, batch effects, metadata (e.g., cell age).
+Some of the analyses that Schema can facilitate include:
 
+  - infer cell types jointly across modalities.
+  - identify genes whose expression correlates with the cell state as measured by other modalities.
+  - perform spatial transcriptomic analyses to identify differntially-expressed genes and cell types that display a specific spatial characteristic.
+  - create informative visualizations of multi-modal data by infusing information from other modalities into scRNA-seq data, and plotting the synthesized data with t-SNE or UMAP.
+    
+Schema offers support for the incorporation of more than two modalities and can also simultaneously handle batch effects and metadata (e.g., cell age).
 
-We think a pretty neat use of Schema is to infuse scRNA-seq data with information from additional modalities, allowing the creation of more informative t-SNE & UMAP visualizations.
 
 Schema is based on a metric learning approach and formulates the modality-synthesis problem as a quadratic programming problem. Its Python-based implementation can efficiently process large datasets without the need of a GPU.
 
 Read the documentation_.
-If you'd like to contribute by opening an issue or creating a pull request at our `Github page`_
-If Schema is useful for your research, consider citing `bioRxiv (2019)`_.
+We encourage you to report issues and create pull reports to contribute your enhancements at our `Github page`_.
+If Schema is useful for your research, please consider citing `bioRxiv (2019)`_.
+
 
 .. _documentation: https://schema-multimodal.readthedocs.io 
 .. _bioRxiv (2019): https://www.biorxiv.org/content/10.1101/834549v1
