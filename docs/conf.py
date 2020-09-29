@@ -3,9 +3,14 @@
 import os
 import sys
 
-copyright = 'Rohit Singh, Brian Hie, Ashwin Narayan, Bonnie Berger (2020)'
+templates_path = ['_templates']
+
+project = 'Schema'
+copyright = '2020, Rohit Singh, Brian Hie, Ashwin Narayan & Bonnie Berger'
 source_suffix = '.rst'
 master_doc = 'index'
+
+html_theme = 'sphinx_rtd_theme'
 
 html_theme_options = {
     'logo_only':  True,
