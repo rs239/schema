@@ -1,5 +1,5 @@
-.. module:: schema_learn
-.. automodule:: schema_learn
+.. module:: schema
+.. automodule:: schema
    :noindex:
 	   
 
@@ -15,8 +15,8 @@ Import schema::
 Basic Usage
 ~~~~~~~~~~~
 
-.. module:: schema_learn.schema_qp
-.. currentmodule:: schema_learn
+.. module:: schema.schema_qp
+.. currentmodule:: schema
 	    
 .. autosummary::
    :toctree: .
