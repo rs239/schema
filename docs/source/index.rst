@@ -2,9 +2,8 @@
 
 
 .. toctree::
-   :maxdepth: 1
-..   :caption: Contents:
-
+   :maxdepth: 2
+   :hidden:
 
    overview
    installation
