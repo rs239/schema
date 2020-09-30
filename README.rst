@@ -7,17 +7,17 @@
 
 
 
-Schema - Analyze and Visualize Multi-modal Single-Cell Data
-===========================================================
+Schema - Analyze and Visualize Multimodal Single-Cell Data
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Schema is a Python library for the synthesis and integration of heterogeneous single-cell modalities.
 **It is designed for the case where the modalities have all been assayed for the same cells simultaneously.**
-Some of the analyses that you can do with Schema include:
+Here are some of the analyses that you can do with Schema:
 
   - infer cell types jointly across modalities.
-  - identify genes whose expression correlates with the cell state as measured by other modalities.
-  - perform spatial transcriptomic analyses to identify differntially-expressed genes and cell types that display a specific spatial characteristic.
-  - create informative visualizations of multi-modal data by infusing information from other modalities into scRNA-seq data, and plotting the synthesized data with t-SNE or UMAP.
+  - identify genes whose RNA-seq expression profile correlates with the cell state as measured by *another* modality.
+  - perform spatial transcriptomic analyses to identify differntially-expressed genes in cells that display a specific spatial characteristic.
+  - create informative t-SNE & UMAP visualizations of multimodal data by infusing information from other modalities into scRNA-seq data.
     
 Schema offers support for the incorporation of more than two modalities and can also simultaneously handle batch effects and metadata (e.g., cell age).
 
@@ -25,7 +25,7 @@ Schema offers support for the incorporation of more than two modalities and can 
 Schema is based on a metric learning approach and formulates the modality-synthesis problem as a quadratic programming problem. Its Python-based implementation can efficiently process large datasets without the need of a GPU.
 
 Read the documentation_.
-We encourage you to report issues and create pull reports to contribute your enhancements at our `Github page`_.
+We encourage you to report issues at our `Github page`_ ; you can also create pull reports there to contribute your enhancements.
 If Schema is useful for your research, please consider citing `bioRxiv (2019)`_.
 
 
