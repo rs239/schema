@@ -1,0 +1,14 @@
+numpy
+matplotlib
+pandas
+scipy
+seaborn
+cvxopt
+tables
+tqdm
+scikit-learn
+umap-learn
+legacy-api-wrap
+setuptools_scm
+packaging
+sinfo
