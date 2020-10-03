@@ -15,7 +15,15 @@ import os, sys, string, fileinput, glob, re, math, itertools, functools, copy, l
 import sklearn.decomposition, sklearn.preprocessing, sklearn.linear_model, sklearn.covariance
 import cvxopt
 
-from .base_config import *
+#### local directory imports ####
+oldpath = copy.copy(sys.path)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from schema_base_config import *
+
+sys.path = copy.copy(oldpath)
+####
+
 
 class SchemaQP:
     """Schema is a general algorithm for integrating heterogeneous data 

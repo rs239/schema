@@ -13,7 +13,14 @@ from sklearn.preprocessing import normalize
 from collections import defaultdict
 
 
-from .base_config import *
+#### local directory imports ####
+oldpath = copy.copy(sys.path)
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+
+from schema_base_config import *
+
+sys.path = copy.copy(oldpath)
+####
 
 
 def get_louvain_clustering(mtx, num_neighbors=30):
