@@ -13,7 +13,6 @@ contexts too.
 Basic Usage
 ~~~~~~~~~~~
 
-Import schema::
 .. code-block:: Python
 
     from schema import SchemaQP
@@ -52,7 +51,7 @@ Import schema::
 
 
 
-It is described in the paper “Schema: metric learning enables
+Schema is described in the paper “Schema: metric learning enables
 interpretable synthesis of heterogeneous single-cell modalities" 
 (http://doi.org/10.1101/834549)
 

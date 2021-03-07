@@ -28,38 +28,38 @@ sys.path = copy.copy(oldpath)
 class SchemaQP:
     """Schema is a tool for integrating simultaneously-assayed data modalities
 
-    This class provides a sklearn type fit+transform API for constrained
+    The SchemaQP class provides a sklearn type fit+transform API for constrained
     affine transformations of input datasets such that the transformed data is
     in agreement with all the input datasets.
 """
 
     
     def __init__(self, min_desired_corr=0.99, mode="affine", params={}):
-        """Create the SchemaQP class (QP = Quadratic Programming)
+        """
 
         :param min_desired_corr: 
             This parameter controls how severe the transformation of the
-            primary modality will be and is the main free-parameter in
-            Schema.  It is the minimum required correlation between
-            distances in the transformed space and those in the original
-            space, for the primary modality. It controls the trade-off
-            between deviating from the primary modality's original data
-            and achieving agreement with the secondary modalities. Values
-            close to one result in lower distortion of the primary
-            modality. With these, the distortion will be low, but enough
-            for Schema to integrate information from the secondary modalities. 
-            Furthermore, the feature weights will likely still be quite infromative.
+            primary modality, specifying the minimum required correlation
+            between distances in the transformed space and those in the
+            original space, for the primary modality. It thus controls the
+            trade-off between deviating more from the primary modality's
+            original data vs. achieving greater agreement with the
+            secondary modalities. Values close to one result in lower
+            distortion of the primary modality while those closer to zero
+            enable greater agreement.
 
-            RECOMMENDED VALUES: 
-            In typical single-cell use cases, high values (> 0.80) will
-            probably work best.  The default value of 0.99 is a safe
-            choice to start with-- it poses low risk of deviating too far
-            from the primary modality.
+            RECOMMENDED VALUES: In typical single-cell use cases, high
+            values (> 0.80) will probably work best. With these, the
+            distortion will be low, but enough for Schema to integrate
+            information from the secondary modalities.  Furthermore, the
+            feature weights will likely still be quite infromative.  The
+            default value of 0.99 is a safe choice to start with-- it
+            poses low risk of deviating too far from the primary modality.
 
-            Later you can experiment with a range of values (e.g., 0.99, 0.90,
-            0.80), or use feature-weights aggregated across an ensemble of
-            choices. Alternatively, you can use cross-validation to identify the
-            best setting
+            Later, you can experiment with a range of values (e.g., 0.99,
+            0.90, 0.80), or use feature-weights aggregated across an
+            ensemble of choices. Alternatively, you can use
+            cross-validation to identify the best setting
 
         :type min_desired_corr: float in [0,1)
 
@@ -67,52 +67,57 @@ class SchemaQP:
             Whether to perform a general affine transformation or just a
             scaling transformation
 
-            * 'affine' first does a mapping to PCA or NMF space (you can specify
-              n_components via the 'params' argument) It then does a
-              scaling transform in that space and then maps everything back
-              to the regular space, the final space being an affine
-              transformation
+            * `affine` first does a mapping to PCA or NMF space (you can
+              specify n_components via the 'params' argument) It then does
+              a scaling transform in that space and then maps everything
+              back to the regular space, the final space being an affine
+              transformation.
 
-            * 'scale' does not the PCA or NMF mapping and directly does the
-              scaling transformation. NOTE: This can be slow if the primary
-              modality's dimensionality is over 100.
+            * `scale` does not the PCA or NMF mapping and directly does
+              the scaling transformation. **Note**: This can be slow if
+              the primary modality's dimensionality is over 100.
 
 
-            RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to
-            do the change-of-basis.  You'll want 'scale' only in one of two cases:
+            RECOMMENDED VALUES: `affine` is the default, which uses PCA or
+            NMF to do the change-of-basis. You may want `scale` only in
+            certain cases:
 
-            * You have some features on which you directly want Schema to compute feature-weights.  
+            * You have a limited number of features on which you directly
+              want Schema to compute feature-weights.
 
-            * You want to do a change-of-basis transform other PCA or NMF. 
-              If so, you will need to do that  yourself and then call SchemaQP with the
-              transformed primary dataset with mode='scale'.
+            * You want to do a change-of-basis transform other PCA or NMF.
+              If so, you will need to do that yourself and then call
+              SchemaQP with the transformed primary dataset with
+              mode='scale'.
+
 
         :type mode: string
 
-        :param params: dict of key-value pairs, optional (see defaults below)
+        :param params: 
+             Dictionary of key-value pairs, specifying additional
+             configuration parameters. Here are the important ones:
 
-             Additional configuration parameters. Here are the important ones: 
+               * `decomposition_model`: "pca" or "nmf" (default=pca)
 
-               * decomposition_model: "pca" or "nmf"   (default=pca)
-
-               * num_top_components: (default=50) number of PCA (or NMF)
+               * `num_top_components`: (default=50) number of PCA (or NMF)
                  components to use when mode=="affine"
 
-             You can ignore the rest on your first pass; the default values are
-             pretty reasonable: 
+             You can ignore the rest on your first pass; the default
+             values are pretty reasonable:
 
-               * dist_npairs: (default=2000000). How many pt-pairs to use for
-                 computing pairwise distances. value=None means compute
-                 exhaustively over all n*(n-1)/2 pt-pairs. Not recommended for
-                 n>5000.  Otherwise, the given number of pt-pairs is sampled
-                 randomly. The sampling is done in a way in which each point will
-                 be represented roughly equally.
+               * `dist_npairs`: (default=2000000). How many pt-pairs to use
+                 for computing pairwise distances. value=None means
+                 compute exhaustively over all n*(n-1)/2 pt-pairs. Not
+                 recommended for n>5000.  Otherwise, the given number of
+                 pt-pairs is sampled randomly. The sampling is done in a
+                 way in which each point will be represented roughly
+                 equally.
 
-               * scale_mode_uses_standard_scaler: 1 or 0 (default=0), apply the
-                 standard scaler in the scaling mode
+               * `scale_mode_uses_standard_scaler`: 1 or 0 (default=0),
+                 apply the standard scaler in the scaling mode
 
-               * do_whiten: 1 or 0 (default=1). When mode=="affine", should the
-                 change-of-basis loadings be made 1-variance?
+               * `do_whiten`: 1 or 0 (default=1). When mode=="affine",
+                 should the change-of-basis loadings be made 1-variance?
 
         :type params: dict
 
@@ -154,13 +159,16 @@ class SchemaQP:
 
 
     def reset_mincorr_param(self, min_desired_corr):
-        """
-Reset the min_desired_corr. Useful when you want to iterate over multiple choices of this parameter but re-use the computed PCA or NMF change-of-basis transform
+        """Reset the min_desired_corr. 
 
-#### Parameters
-`d`: min_desired_corr
+        Useful when you want to iterate over multiple choices of this parameter
+        but want to re-use the computed PCA or NMF change-of-basis transform.
 
-    The new value of correlation
+        :param min_desired_corr: the new value of minimum required correlation
+            between original and transformed distances
+
+        :type min_desired_corr: float in [0,1)
+
 """
         if min_desired_corr is None or not(0 <= min_desired_corr < 1): raise ValueError("'min_desired_corr' must be between 0 and 1")
         self._min_desired_corr = min_desired_corr
@@ -168,26 +176,20 @@ Reset the min_desired_corr. Useful when you want to iterate over multiple choice
 
 
     def reset_maxwt_param(self, w_max_to_avg):
-        """
-Reset the w_max_to_avg param (default=1000). This parameter controls the 'deviation' in feature weights computed by Schema and we recommend NOT changing it.
-This parameter specifies the maximum allowed value of max(schema_wts)/avg(schema_wts) and the default value is high enough to make this a non-binding constraint.
+        """ Reset the w_max_to_avg param (default=1000). 
 
-#### Parameters
-`w_max_to_avg`: min_desired_corr
+        This parameter controls the 'deviation' in feature weights
+        computed by Schema and sets the upper-bound on the ratio of w's
+        largest element to w's avg element.  Making it large will allow
+        for more severe transformations.
 
-    The new value of correlation
-
-     Sets the upper-bound on the ratio of w's largest element to w's avg element.
-     Making it large will allow for more severe transformations.
-
-    RECOMMENDED VALUES: We recommend keeping this parameter at its default value (1000); that keep this constraint 
-                        very loose and ensures that  min_desired_corr remains the binding constraint.
-                        Later, as you get a better sense for the right min_desired_corr values
-                        for your data, you can experiment with this too.
-
-                        To really constrain this, set it in the (1-5] range, depending on
-                        how many features you have.
-
+        RECOMMENDED VALUES: We recommend keeping this parameter at its
+        default value (1000); that keep this constraint very loose and
+        ensures that min_desired_corr remains the binding constraint.
+        Later, as you get a better sense for the right min_desired_corr
+        values for your data, you can experiment with this too.
+        To really constrain this, set it in the (1-5] range, depending on
+        how many features you have.
 
 """
         if w_max_to_avg is None or w_max_to_avg <= 1: raise ValueError("'w_max_to_avg' must be either None or greater than 1")
@@ -197,7 +199,8 @@ This parameter specifies the maximum allowed value of max(schema_wts)/avg(schema
         
     
     def fit(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, d0 = None, d0_dist_transform=None, secondary_data_dist_transform_list=None):
-        """
+        """Compute the optimal Schema transformation, performing a change-of-basis transformation first if speciefied.
+
 Given the primary dataset 'd' and a list of secondary datasets, fit a linear transformation (d*) of
    'd' such that the correlation between squared pairwise distances in d* and those in secondary datasets
     is maximized while the correlation between the primary dataset d and d* remains above
