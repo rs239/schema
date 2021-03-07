@@ -46,7 +46,7 @@ class SchemaQP:
             representation and achieving greater agreement with the
             secondary modalities. Values close to one result in lower
             distortion of the primary modality while those close to zero
-            enable result in transformations offering greater agreement
+            enable transformations offering greater agreement
             between the modalities.
 
             RECOMMENDED VALUES: In typical single-cell use cases, high
@@ -71,12 +71,12 @@ class SchemaQP:
             scaling transformation
 
             * `affine` first does a mapping to PCA or NMF space (you can
-              specify n_components via the 'params' argument). It does
-              a scaling transform in that space and then maps everything
-              back to the regular space, the final space being an affine
-              transformation.
+              specify num_top_components via the `params` argument). Schema does
+              a scaling transform in the mapped space and then converts everything
+              back to the regular space. The final result is thus an affine
+              transformation in the regular space.
 
-            * `scale` does not do a PCA or NMF mapping and directly apply
+            * `scale` does not do a PCA or NMF mapping, and directly applies
               the scaling transformation. **Note**: This can be slow if
               the primary modality's dimensionality is over 100.
 
@@ -102,7 +102,9 @@ class SchemaQP:
                * `decomposition_model`: "pca" or "nmf" (default=pca)
 
                * `num_top_components`: (default=50) number of PCA (or NMF)
-                 components to use when mode=="affine"
+                 components to use when mode=="affine". We recommend this
+                 setting be <= 100. Schema's runtime is quadratic in this
+                 number.
 
              You can ignore the rest on your first pass; the default
              values are pretty reasonable:
@@ -188,8 +190,8 @@ class SchemaQP:
             parameter controls the 'deviation' in feature weights and make it
             large will allow for more severe transformations.
 
-            RECOMMENDED VALUES: We recommend keeping this parameter at its
-            default value (1000); that keep this constraint very loose and
+            **Handle with care:** We recommend keeping this parameter at its
+            default value (1000); that keeps this constraint very loose and
             ensures that min_desired_corr remains the binding constraint.
             Later, as you get a better sense for the right min_desired_corr
             values for your data, you can experiment with this too.  To really
@@ -211,7 +213,10 @@ class SchemaQP:
         linear transformation (`d_new`) such that the correlation between
         squared pairwise distances in `d_new` and those in secondary datasets is
         maximized while the correlation between the original `d` and the transformed `d_new`
-        remains above min_desired_corr
+        remains above min_desired_corr.
+
+        The first two arguments are required, the next two are useful, and
+        the rest should be rarely used.
 
         :type d: Numpy 2-d `array` or Pandas `dataframe`
 
@@ -220,7 +225,7 @@ class SchemaQP:
 
             The rows are observations (e.g., cells) and the cols are variables (e.g.,
             gene expression).  The default distance measure computed is L2:
-            sum((point1-point2)**2). See `d0_dist_transform`.
+            sum((point1-point2)**2). Also see `d0_dist_transform`.
 
 
         :type secondary_data_val_list: list of 1-d or 2-d Numpy arrays or Pandas series, each with same number of rows as `d`
@@ -236,43 +241,43 @@ class SchemaQP:
         :param secondary_data_type_list: 
             The datatypes of the secondary modalities.
 
-            Each element of the list can be one of `auto,
-            numeric, feature_vector, categorical,
-            feature_vector_categorical` (default=`auto`).
-            The list's length should match the length of secondary_data_val_list
+            Each element of the list can be one of `auto, numeric,
+            feature_vector, categorical, feature_vector_categorical`
+            (default=`auto`).  The list's length should match the length
+            of secondary_data_val_list
 
-            * `auto` makes the best guess out of the 4 possibilities below
+            * `auto`: make the best guess out of the 4 possibilities below
 
-            * `numeric` means you're giving one floating-pt value for each obs.
-              The default distance measure is L2: (point1-point2)^2 
+            * `numeric`: one floating-pt value for each observation.  The
+              default distance measure is Euclidean: (point1-point2)^2
+ 
+            * `feature_vector`: a k-dimensional vector for each
+              observation.  The default distance measure is Euclidean:
+              sum_{i}((point1[i]-point2[i])^2)
 
-            * `feature_vector` means you're giving some multi-dimensional
-              representation for each obs.  The default distance measure is 
-              L2: sum_{i}((point1[i]-point2[i])^2) 
+            * `categorical`: a label for each observation.  The default
+              distance measure checks for equality: 1*(val1!=val2)
 
-            * `feature_vector_categorical` means you're giving some
-              multi-dimensional representation for each obs.  Each column
-              can take on categorical values, so the distance between two
-              points is sum_{i}(point1[i]==point2[i])
-
-            * `categorical` means that you
-              are providing label information that should be compared for
-              equality.  The default distance measure is: 1*(val1!=val2)
+            * `feature_vector_categorical`: a vector of labels for each
+              observation.  Each column can take on categorical values, so
+              the distance between two points is
+              sum_{i}(point1[i]==point2[i])
 
 
         :type secondary_data_wt_list: list of floats, **optional**
 
         :param secondary_data_wt_list: 
-            User-specified wts for each dataset (default=`None`)
+            User-specified wts for each secondary dataset (default= list of 1's)
 
-            If `None`, the wts are 1.  If specified, the list's length should match
-            the length of secondary_data_wt_list
+            If specified, the list's length should match the length of
+            secondary_data_val_list. When multiple secondary modalities are
+            specified, this parameter allows you to control their relative
+            weight in seeking an agreement with the primary.
 
             **Note**: you can try to get a mapping that *disagrees* with a
-            dataset_info instead of *agreeing*.  To do so, pass in a negative
-            number (e.g., -1) here. This works even if you have just one
-            secondary dataset
-
+            dataset_info instead of *agreeing*.  To do so, pass in a
+            negative number (e.g., -1) here. This works even if you have
+            just one secondary dataset
 
         :type d0: A 1-d or 2-d numpy array, **optional** 
 
