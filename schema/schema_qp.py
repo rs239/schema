@@ -44,7 +44,7 @@ interpretable synthesis of heterogeneous single-cell modalities"
 Source code available at: https://github.com/rs239/schema
 
 
-:Example: (Quick start) correlate gene expression with developmental stage. We demonstrate use with Anndata objects here.
+:Example: Correlate gene expression with developmental stage. We demonstrate use with Anndata objects here.
 .. code-block:: Python
 
     sqp = SchemaQP() # initialize with default params (min_corr = 0.99)
@@ -81,15 +81,21 @@ Source code available at: https://github.com/rs239/schema
         """Create the SchemaQP class (QP = Quadratic Programming)
 
         :param min_desired_corr: 
-            The minimum desired correlation between squared  L2 distances 
+            The minimum desired correlation between squared L2 distances 
             in the transformed space and distances in the original space.
+            This is the key free-parameter in Schema and controls the trade-off
+            between deviating from the primary modality's original data and 
+            achieving agreement with the secondary modalities. Values close to one
+            result in lower distortion of the primary modality. With these, the 
+            distortion will be low, but it may nonetheless be sufficient to pick up
+            information from the secondary modalities. Furthermore, the feature weights
+            will likely still be quite infromative.  
 
             RECOMMENDED VALUES: 
-            In typical use-cases of large biological datasets,
-            high values (> 0.80) will probably work best.  The default value of
-            0.99 is very high and will almost certainly prevent your primary
-            modality's biological information.  However, Schema should still be
-            able to identify an informative feature weighting at this scale.
+            In typical use-cases of large biological datasets, high values (> 0.80) 
+            will probably work best.  The default value of
+            0.99 is a safe choice to start with-- it poses low risk of deviating too
+            far from the primary modality. 
 
             Later you can experiment with a range of values (e.g., 0.99, 0.90,
             0.80), or use feature-weights aggregated across an ensemble of
@@ -102,14 +108,12 @@ Source code available at: https://github.com/rs239/schema
             Whether to perform a general affine transformation or just a
             scaling transformation
 
-            * 'affine' 
-            First does a mapping to PCA or NMF space (you can specify
+            * 'affine' first does a mapping to PCA or NMF space (you can specify
             n_components via the 'params' argument) It then does a scaling
             transform in that space and then maps everything back to the
             regular space, the final space being an affine transformation
 
-            * 'scale' 
-            Does not the PCA or NMF mapping and directly does the
+            * 'scale' does not the PCA or NMF mapping and directly does the
             scaling transformation. NOTE: This can be slow if the primary
             modality's dimensionality is over 100.
 
