@@ -38,25 +38,28 @@ class SchemaQP:
         """
 
         :param min_desired_corr: 
-            This parameter controls how severe the transformation of the
-            primary modality, specifying the minimum required correlation
-            between distances in the transformed space and those in the
-            original space, for the primary modality. It thus controls the
-            trade-off between deviating more from the primary modality's
-            original data vs. achieving greater agreement with the
+            This parameter controls the severity of the primary modality's
+            transformation, specifying the minimum required correlation
+            between distances in the original space and those in the
+            transformed space. It thus controls the trade-off between
+            deviating further away from the primary modality's original
+            representation and achieving greater agreement with the
             secondary modalities. Values close to one result in lower
-            distortion of the primary modality while those closer to zero
-            enable greater agreement.
+            distortion of the primary modality while those close to zero
+            enable result in transformations offering greater agreement
+            between the modalities.
 
             RECOMMENDED VALUES: In typical single-cell use cases, high
             values (> 0.80) will probably work best. With these, the
-            distortion will be low, but enough for Schema to integrate
-            information from the secondary modalities.  Furthermore, the
-            feature weights will likely still be quite infromative.  The
-            default value of 0.99 is a safe choice to start with-- it
+            distortion will be low, but still be enough for Schema to
+            extract relevant information from the secondary modalities.
+            Furthermore, the feature weights computed by Schema will
+            likely be quite infromative.
+
+            The default value of 0.99 is a safe choice to start with-- it
             poses low risk of deviating too far from the primary modality.
 
-            Later, you can experiment with a range of values (e.g., 0.99,
+            Later, you can experiment with a range of values (e.g., 0.95
             0.90, 0.80), or use feature-weights aggregated across an
             ensemble of choices. Alternatively, you can use
             cross-validation to identify the best setting
@@ -68,19 +71,18 @@ class SchemaQP:
             scaling transformation
 
             * `affine` first does a mapping to PCA or NMF space (you can
-              specify n_components via the 'params' argument) It then does
+              specify n_components via the 'params' argument). It does
               a scaling transform in that space and then maps everything
               back to the regular space, the final space being an affine
               transformation.
 
-            * `scale` does not the PCA or NMF mapping and directly does
+            * `scale` does not do a PCA or NMF mapping and directly apply
               the scaling transformation. **Note**: This can be slow if
               the primary modality's dimensionality is over 100.
 
 
-            RECOMMENDED VALUES: `affine` is the default, which uses PCA or
-            NMF to do the change-of-basis. You may want `scale` only in
-            certain cases:
+            RECOMMENDED VALUES: `affine` is the default. You may need `scale` 
+            only in certain cases:
 
             * You have a limited number of features on which you directly
               want Schema to compute feature-weights.
@@ -199,82 +201,108 @@ class SchemaQP:
         
     
     def fit(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, d0 = None, d0_dist_transform=None, secondary_data_dist_transform_list=None):
-        """Compute the optimal Schema transformation, performing a change-of-basis transformation first if speciefied.
+        """Compute the optimal Schema transformation, first performing a
+        change-of-basis transformation if required.
 
-Given the primary dataset 'd' and a list of secondary datasets, fit a linear transformation (d*) of
-   'd' such that the correlation between squared pairwise distances in d* and those in secondary datasets
-    is maximized while the correlation between the primary dataset d and d* remains above
-    min_desired_corr
+        Given the primary dataset 'd' and a list of secondary datasets, fit a
+        linear transformation (d*) of 'd' such that the correlation between
+        squared pairwise distances in d* and those in secondary datasets is
+        maximized while the correlation between the primary dataset d and d*
+        remains above min_desired_corr
 
+        :type d: A numpy 2-d `array` or Pandas `dataframe`
 
-#### Parameters
+        :param d: The primary dataset (e.g. scanpy/anndata's .X).
 
-`d`: A numpy 2-d `array`
-
-    The primary dataset (e.g. scanpy/anndata's .X).
-    The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
-    The default distance measure computed is L2: sum((point1-point2)**2). See d0_dist_transform.
-
-
-`secondary_data_val_list`: `list` of 1-d or 2-d numpy `array`s, each with same number of rows as `d`
-
-    The secondary datasets you want to align the primary data towards.
-    Columns in scanpy's .obs variables work well (just remember to use .values)
+            The rows are observations (e.g., cells) and the cols are variables (e.g.,
+            gene expression).  The default distance measure computed is L2:
+            sum((point1-point2)**2). See `d0_dist_transform`.
 
 
-`secondary_data_type_list`: `list` of `string`s, each value in {'numeric','feature_vector','categorical', 'feature_vector_categorical'}
+        :type secondary_data_val_list: list of 1-d or 2-d numpy arrays, each with
+        same number of rows as `d`
 
-    The list's length should match the length of secondary_data_val_list
-
-    * 'numeric' means you're giving one floating-pt value for each obs.
-          The default distance measure is L2:  (point1-point2)**2
-    * 'feature_vector' means you're giving some multi-dimensional representation for each obs.
-          The default distance measure is L2: sum_{i}((point1[i]-point2[i])**2)
-    * 'feature_vector_categorical' means you're giving some multi-dimensional representation for each obs.
-          Each column can take on categorical values, so the distance between two points is sum_{i}(point1[i]==point2[i])
-    * 'categorical' means that you are providing label information that should be compared for equality.
-          The default distance measure is: 1*(val1!=val2)
+        :param secondary_data_val_list: The secondary datasets you want to align
+            the primary data towards.  Columns in Anndata .obs or .obsm variables
+            work well (just remember to use .values)
 
 
-`secondary_data_wt_list`: `list` of `float`s, optional (default: `None`)
+        :type secondary_data_type_list: list of strings. 
 
-    User-specified wts for each dataset. If 'None', the wts are 1.
-    If specified, the list's length should match the length of secondary_data_wt_list
+        :param secondary_data_type_list: The datatypes of the secondary
+            modalities.
 
-    NOTE: you can try to get a mapping that *disagrees* with a dataset_info instead of *agreeing*.
-      To do so, pass in a negative number (e.g., -1)  here. This works even if you have just one secondary
-      dataset
+            Each element of the list can be one of :py:`auto,
+            numeric, feature_vector, categorical,
+            feature_vector_categorical`. :py:`auto` is the default,
 
+                The list's length should match the length of secondary_data_val_list
 
-`d0`: A 1-d or 2-d numpy array, same number of rows as 'd', optional (default: `None`)
+                * `numeric` means you're giving one floating-pt value for each obs.
+                  The default distance measure is L2: (point1-point2)**2 
 
-    An alternative representation of the primary dataset.
+                * `feature_vector` means you're giving some multi-dimensional
+                  representation for each obs.  The default distance measure is 
+                  L2: sum_{i}((point1[i]-point2[i])**2) 
 
-    HANDLE WITH CARE! Most likely, you don't need this parameter.
-    This is useful if you want to provide the primary dataset in two forms: one for transforming and
-    another one for computing pairwise distances to use in the QP constraint; if so, 'd' is used for the
-    former, while 'd0' is used for the latter
+                * `feature_vector_categorical` means you're giving some
+                  multi-dimensional representation for each obs.  Each column
+                  can take on categorical values, so the distance between two
+                  points is sum_{i}(point1[i]==point2[i])
 
-
-`d0_dist_transform`: a function that takes a non-negative float as input and
-                    returns a non-negative float, optional (default: `None`)
-
-
-    HANDLE WITH CARE! Most likely, you don't need this parameter.
-    The transformation to apply on d or d0's L2 distances before using them for correlations.
-
-
-`secondary_data_dist_transform`: `list` of functions, each taking a non-negative float and
-                                 returning a non-negative float, optional (default: `None`)
-
-    HANDLE WITH CARE! Most likely, you don't need this parameter.
-    The transformations to apply on secondary dataset's L2 distances before using them for correlations.
-    If specified, the length of the list should match that of secondary_data_val_list
+                * `categorical` means that you
+                   are providing label information that should be compared for
+                   equality.  The default distance measure is: 1*(val1!=val2)
 
 
-#### Returns:
+        :type secondary_data_wt_list: list of floats, optional (default: `None`)
 
-    None
+        :param secondary_data_wt_list: User-specified wts for each dataset. 
+
+            If `None`, the wts are 1.  If specified, the list's length should match
+            the length of secondary_data_wt_list
+
+            **Note**: you can try to get a mapping that *disagrees* with a
+            dataset_info instead of *agreeing*.  To do so, pass in a negative
+            number (e.g., -1) here. This works even if you have just one
+            secondary dataset
+
+
+        :type d0: A 1-d or 2-d numpy array, same number of rows as `d`, optional
+        (default: `None`)
+
+        :param d0: An alternative representation of the primary dataset.
+
+            This is useful if you want to provide the primary dataset in two
+            forms: one for transforming and another one for computing pairwise
+            distances to use in the QP constraint; if so, `d` is used for the
+            former, while `d0` is used for the latter
+
+            **HANDLE WITH CARE!** Most likely, you don't need this parameter.
+
+
+        :type d0_dist_transform: a function that takes a non-negative float as
+        input and returns a non-negative float, optional (default: `None`)
+
+        :param d0_dist_transform: The transformation to apply on d or d0's L2
+        distances before using them for correlations.
+
+            **HANDLE WITH CARE!** Most likely, you don't need this parameter.
+
+
+        :type secondary_data_dist_transform: `list` of functions, each taking a
+        non-negative float and returning a non-negative float, optional (default:
+        `None`)
+
+        :param secondary_data_dist_transform: The transformations to apply on
+            secondary dataset's L2 distances before using them for correlations.
+
+            If specified, the length of the list should match that of
+            secondary_data_val_list
+
+            **HANDLE WITH CARE!** Most likely, you don't need this parameter.
+
+        :returns: None
          """
         
         if not (d.ndim==2): raise ValueError('d should be a 2-d array')
