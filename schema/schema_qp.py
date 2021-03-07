@@ -80,10 +80,12 @@ Source code available at: https://github.com/rs239/schema
     def __init__(self, min_desired_corr=0.99, mode="affine", params={}):
         """Create the SchemaQP class (QP = Quadratic Programming)
 
-        :param min_desired_corr: The minimum desired correlation between squared 
-             L2 distances in the transformed space and distances in the original space.
+        :param min_desired_corr: 
+            The minimum desired correlation between squared  L2 distances 
+            in the transformed space and distances in the original space.
 
-            RECOMMENDED VALUES: In typical use-cases of large biological datasets,
+            RECOMMENDED VALUES: 
+            In typical use-cases of large biological datasets,
             high values (> 0.80) will probably work best.  The default value of
             0.99 is very high and will almost certainly prevent your primary
             modality's biological information.  However, Schema should still be
@@ -96,17 +98,20 @@ Source code available at: https://github.com/rs239/schema
 
         :type min_desired_corr: float in [0,1)
 
-        :param mode: Whether to perform a general affine transformation or just a
+        :param mode: 
+            Whether to perform a general affine transformation or just a
             scaling transformation
 
-            * 'affine' first does a mapping to PCA or NMF space (you can specify
-               n_components via the 'params' argument) It then does a scaling
-               transform in that space and then maps everything back to the
-               regular space, the final space being an affine transformation
+            * 'affine' 
+            First does a mapping to PCA or NMF space (you can specify
+            n_components via the 'params' argument) It then does a scaling
+            transform in that space and then maps everything back to the
+            regular space, the final space being an affine transformation
 
-            * 'scale' does not the PCA or NMF mapping and directly does the
-               scaling transformation. NOTE: This can be slow if the primary
-               modality's dimensionality is over 100.
+            * 'scale' 
+            Does not the PCA or NMF mapping and directly does the
+            scaling transformation. NOTE: This can be slow if the primary
+            modality's dimensionality is over 100.
 
             RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to
             do the change-of-basis.  You'll want 'scale' only in one of two cases:
@@ -121,14 +126,12 @@ Source code available at: https://github.com/rs239/schema
 
         :param params: dict of key-value pairs, optional (see defaults below)
 
-             Additional configuration parameters.
-
-             Here are the important ones: 
+             Additional configuration parameters. Here are the important ones: 
 
                * decomposition_model: "pca" or "nmf"   (default=pca)
 
                * num_top_components: (default=50) number of PCA (or NMF)
-                 components to use when mode=="affine".
+                 components to use when mode=="affine"
 
              You can ignore the rest on your first pass; the default values are
              pretty reasonable: 
