@@ -241,6 +241,8 @@ class SchemaQP:
             feature_vector_categorical` (default=`auto`).
             The list's length should match the length of secondary_data_val_list
 
+            * `auto` makes the best guess out of the 4 possibilities below
+
             * `numeric` means you're giving one floating-pt value for each obs.
               The default distance measure is L2: (point1-point2)^2 
 
@@ -254,14 +256,14 @@ class SchemaQP:
               points is sum_{i}(point1[i]==point2[i])
 
             * `categorical` means that you
-               are providing label information that should be compared for
-               equality.  The default distance measure is: 1*(val1!=val2)
+              are providing label information that should be compared for
+              equality.  The default distance measure is: 1*(val1!=val2)
 
 
-        :type secondary_data_wt_list: list of floats, **optional** (default= `None`)
+        :type secondary_data_wt_list: list of floats, **optional**
 
         :param secondary_data_wt_list: 
-            User-specified wts for each dataset. 
+            User-specified wts for each dataset (default=`None`)
 
             If `None`, the wts are 1.  If specified, the list's length should match
             the length of secondary_data_wt_list
@@ -281,10 +283,9 @@ class SchemaQP:
             forms: one for transforming and another one for computing pairwise
             distances to use in the QP constraint; if so, `d` is used for the
             former, while `d0` is used for the latter.
-
             If specified, it should have the same number of rows as `d`.
 
-            **HANDLE WITH CARE!** Most likely, you don't need this parameter.
+            **Handle with care:** Most likely, you don't need this parameter.
 
 
         :type d0_dist_transform: float -> float function, **optional**
@@ -294,11 +295,11 @@ class SchemaQP:
             distances before using them for correlations.
 
             This function should take a non-negative float as input and return a non-negative float.
-            **HANDLE WITH CARE!** Most likely, you don't need this parameter.
+
+            **Handle with care:** Most likely, you don't need this parameter.
 
 
         :type secondary_data_dist_transform: list of functions, **optional**
-
 
         :param secondary_data_dist_transform: 
             The transformations to apply on
@@ -307,7 +308,8 @@ class SchemaQP:
             If specified, the length of the list should match that of
             `secondary_data_val_list`. 
             Each function should take a non-negative float and return a non-negative float. 
-            **HANDLE WITH CARE!** Most likely, you don't need this parameter.
+
+            **Handle with care:** Most likely, you don't need this parameter.
 
         :returns: None
          """
@@ -355,17 +357,15 @@ class SchemaQP:
         """
 Given a dataset `d`, apply the fitted transform to it
 
+:type d: Numpy 2-d array
 
-#### Parameters
-
-`d`:  a numpy 2-d array with same number of columns as primary dataset `d` in the fit(...)
+:param d: 
+    The primary modality data on which to apply the transformation. `d` must have with same number of columns as in `fit(...)`
 
     The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
 
 
-#### Returns
-
- a 2-d numpy array with the same shape as `d`
+:returns: a 2-d numpy array with the same shape as `d`
          """
         
         if self._mode=="scale":
