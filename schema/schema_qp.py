@@ -26,135 +26,150 @@ sys.path = copy.copy(oldpath)
 
 
 class SchemaQP:
-    """Schema is a general algorithm for integrating heterogeneous data 
-           modalities. It has been specially designed for multi-modal 
-           single-cell biological datasets, but should work in other contexts too.
-       This version is based on a Quadratic Programming Framework.
+    """Schema is a tool for integrating simultaneously-assayed data modalities
 
-       Source code available at: 
-       https://github.com/rs239/schema 
+Schema is a general algorithm for integrating heterogeneous data
+modalities. While it has been specially designed for multi-modal
+single-cell biological datasets, it should work in other multi-modal
+contexts too.
 
-       It is described in the paper “Schema: A general framework for integrating 
-           heterogeneous single-cell modalities” 
-       https://www.biorxiv.org/content/10.1101/834549v1/
+This class provides a sklearn type fit+transform API for constrained
+affine transformations of input datasets such that the transformed data is
+in agreement with all the input datasets.
 
-       This class provides a sklearn type fit+transform API for affine 
-           transformations of input datasets such that the transformed data 
-           is in agreement with all the input datasets.
+It is described in the paper “Schema: metric learning enables
+interpretable synthesis of heterogeneous single-cell modalities" (Genome
+Biology 2021, https://doi.org/10.1101/834549)
+
+Source code available at: https://github.com/rs239/schema
 
 
-      Example
-      --------
-           sqp = SchemaQP( min_desired_corr = 0.9) 
+:Example:
 
-           Fit
-           ---
-           # scobj is a scanpy/anndata obj; 3 secondary datasets each given equal wt
-           sqp.fit(scobj.X, 
-                   [scobj.obs.col1.values, scobj.obs.col2.values, datasetY.values], 
-                   ["categorical", "numeric", "feature_vector", "feature_vector_categorical"]) 
+Quick start: correlate gene expression with developmental stage. We demonstrate use with Anndata objects here
 
-           #or 
+>>>>  sqp = SchemaQP() # initialize with default params (min_corr = 0.99)
+>>>>  mod_X = sqp.fit_transform( adata.X, [ adata.obs['stage'] ]) # correlate the gene expression with the 'stage' parameter
+>>>>  gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the correlation
 
-           # df is a pd.DataFrame, srs is a pd.Series, -1 means try to disagree
-           sqp.fit( df.values, [srs.values], ['numeric'], [-1]) 
 
-           Transform
-           ----------
-           dnew = sqp.transform(scobj.X) 
-        
-           Fit+Transform
-           -------------
-           dnew = sqp.fit_transform( df.values, [srs.values], ['numeric'], [-1]) 
+:Example:
+
+Correlate gene expression with three secondary modalities. 
+
+>>>>  sqp = SchemaQP(min_corr = 0.9) # lower than the default, allowing greater distortion of the primary modality 
+>>>>  sqp.fit( adata.X,    
+             [ adata.obs['col1'], adata.obs['col2'], adata.obsm['Matrix1'] ], 
+             [ "categorical", "numeric", "feature_vector"]) # data types of the three modalities
+>>>>  mod_X = sqp.transform( adata.X) # transform
+>>>>  gene_wts = sqp.feature_weights() # get gene importances
+
+
+:Example:
+
+Correlate gene expression 1) positive with ATAC-Seq data and 2) negatively with Batch information.
+
+>>>>  atac_30d = sklearn.decomposition.TruncatedSVD(50).fit_transform( atac_cnts_sp_matrix)
+>>>>  sqp = SchemaQP(min_corr=0.9)
+>>>>  # df is a pd.DataFrame, srs is a pd.Series, -1 means try to disagree
+>>>>  mod_X = sqp.fit_transform( df_gene_exp, # gene expression dataframe
+                               [ atac_30d, batch_id],  # batch_info can be a Pandas Series or numpy array
+                               [ 'feature_vector', 'categorical'], 
+                               [ 1, -1]) # maximize combination of (agreement with ATAC-seq + disagreement with batch_id)
+>>>> gene_wts = sqp.feature_weights() # get gene importances
+"""
+
     
-#### Parameters
+    def __init__(self, min_desired_corr=0.99, mode="affine", params={}):
+        """Create the SchemaQP class (QP = Quadratic Programming)
 
-`min_desired_corr`: `float` in [0,1)
+:param min_desired_corr: The minimum desired correlation between squared
+L2 distances in the transformed space and distances in the original space.
 
-    The minimum desired correlation between squared L2 distances in the transformed space
-    and distances in the original space.
+    RECOMMENDED VALUES: In typical use-cases of large biological datasets,
+      high values (> 0.80) will probably work best.  The default value of
+      0.99 is very high and will almost certainly prevent your primary
+      modality's biological information.  However, Schema should still be
+      able to identify an informative feature weighting at this scale.
 
+      Later you can experiment with a range of values (e.g., 0.99, 0.90,
+       0.80), or use feature-weights aggregated across an ensemble of
+       choices. Alternatively, you can use cross-validation to identify the
+       best setting
 
-    RECOMMENDED VALUES: At first, you should try a range of values (e.g., 0.99, 0.90, 0.50).
-                        This will give you a sense of what might work well for your data.
-                        After this, you can progressively narrow down your range.
-                        In typical use-cases of large biological datasets,
-                        high values (> 0.80) will probably work best.
+:type min_desired_corr: float in [0,1)
 
+:param mode: Whether to perform a general affine transformation or just a
+scaling transformation
 
-`w_max_to_avg`: `float` >1, optional (default: 1000)
-
-     Sets the upper-bound on the ratio of w's largest element to w's avg element.
-     Making it large will allow for more severe transformations.
-
-    RECOMMENDED VALUES: We recommend keeping this parameter at its default value (1000); that keep this constraint 
-                        very loose and ensures that  min_desired_corr remains the binding constraint.
-                        Later, as you get a better sense for the right min_desired_corr values
-                        for your data, you can experiment with this too.
-
-                        To really constrain this, set it in the (1-5] range, depending on
-                        how many features you have.
-
-
-`params`: `dict` of key-value pairs, optional (see defaults below)
-
-     Additional configuration parameters.
-     Here are the important ones:
-       * decomposition_model: "pca" or "nmf" (default=pca)
-       * num_top_components: (default=50) number of PCA (or NMF) components to use
-           when mode=="affine".
-
-     You can ignore the rest on your first pass; the default values are pretty reasonable:
-       * dist_npairs: (default=2000000). How many pt-pairs to use for computing pairwise distances
-           value=None means compute exhaustively over all n*(n-1)/2 pt-pairs. Not recommended for n>5000.
-           Otherwise, the given number of pt-pairs is sampled randomly. The sampling is done
-           in a way in which each point will be represented roughly equally.
-       * scale_mode_uses_standard_scaler: 1 or 0 (default=0), apply the standard scaler
-           in the scaling mode
-       * do_whiten: 1 or 0 (default=1). When mode=="affine", should the change-of-basis loadings
-           be made 1-variance?
-
-
-`mode`: `string` one of {`'affine'`, `'scale'`}, optional (default: `'affine'`)
-
-    Whether to perform a general affine transformation or just a scaling transformation
-
-    * 'scale' does scaling transformations only.
-    * 'affine' first does a mapping to PCA or NMF space (you can specify n_components)
-         It then does a scaling transform in that space and then maps everything back to the
+    * 'affine' first does a mapping to PCA or NMF space (you can specify
+         n_components via the 'params' argument) It then does a scaling
+         transform in that space and then maps everything back to the
          regular space, the final space being an affine transformation
 
-    RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to do the change-of-basis.
-                        You'll want 'scale' only in one of two cases:
-                         1) You have some features on which you directly want Schema to compute
-                            feature-weights.
-                         2) You want to do a change-of-basis transform other PCA or NMF. If so, you will
-                            need to do that yourself and then call SchemaQP with the transformed
-                            primary dataset with mode='scale'.
+    * 'scale' does not the PCA or NMF mapping and directly does the
+         scaling transformation. NOTE: This can be slow if the primary
+         modality's dimensionality is over 100.
 
-#### Returns
+    RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to
+                        do the change-of-basis.  You'll want 'scale' only
+                        in one of two cases:
 
-    A SchemaQP object on which you can call fit(...), transform(...) or fit_transform(....).
+                         # You have some features on which you directly
+                           want Schema to compute feature-weights.  
 
-    """
+                         # You want to do a change-of-basis transform other
+                           PCA or NMF. If so, you will need to do that
+                           yourself and then call SchemaQP with the
+                           transformed primary dataset with mode='scale'.
 
-    
-    def __init__(self, min_desired_corr=0.99, w_max_to_avg=1000, params={}, mode="affine"):
-        if w_max_to_avg is not None and w_max_to_avg <= 1: raise ValueError("'w_max_to_avg' must be either None or greater than 1")
+:type mode: string
+
+:param params: dict of key-value pairs, optional (see defaults below)
+
+     Additional configuration parameters.
+
+     Here are the important ones: 
+
+       * decomposition_model: "pca" or "nmf"   (default=pca)
+
+       * num_top_components: (default=50) number of PCA (or NMF)
+           components to use when mode=="affine".
+
+     You can ignore the rest on your first pass; the default values are
+     pretty reasonable: 
+
+       * dist_npairs: (default=2000000). How many pt-pairs to use for
+         computing pairwise distances. value=None means compute
+         exhaustively over all n*(n-1)/2 pt-pairs. Not recommended for
+         n>5000.  Otherwise, the given number of pt-pairs is sampled
+         randomly. The sampling is done in a way in which each point will
+         be represented roughly equally.
+   
+       * scale_mode_uses_standard_scaler: 1 or 0 (default=0), apply the
+         standard scaler in the scaling mode
+
+       * do_whiten: 1 or 0 (default=1). When mode=="affine", should the
+         change-of-basis loadings be made 1-variance?
+
+:type params: dict
+
+:returns: A SchemaQP object on which you can call fit(...), transform(...) or fit_transform(....).
+"""
         if not (mode in ['scale', 'affine']): raise ValueError("'mode' must be one of ['affine','scale']")
         if not (0 <= min_desired_corr < 1): raise ValueError("'min_desired_corr' must be in the range [0,1)") 
 
         self._mode = mode
-        self._w_max_to_avg = w_max_to_avg
+        self._w_max_to_avg = 1000 
         schema_info ("Flag 456.10  ", self._w_max_to_avg)
         self._min_desired_corr = min_desired_corr
         self._std_scaler = None
         self._decomp_mdl = None
-
+        self._orig_decomp_mdl = None
 
         # defaults
-        self._params = {"decomposition_model": "pca",
-                        "num_top_components": 50, #default is 20
+        self._params = {"decomposition_model": "nmf",
+                        "num_top_components": 20, 
                         "dist_npairs": 2000000,
                         "d0_dist_transform": None,
                         "secondary_data_dist_transform_list": None,
@@ -175,6 +190,48 @@ class SchemaQP:
         if not (self._params['num_top_components'] is None or self._params["num_top_components"] >= 2): raise ValueError('Need num_top_components >= 2')
 
 
+
+    def reset_mincorr_param(self, min_desired_corr):
+        """
+Reset the min_desired_corr. Useful when you want to iterate over multiple choices of this parameter but re-use the computed PCA or NMF change-of-basis transform
+
+#### Parameters
+`d`: min_desired_corr
+
+    The new value of correlation
+"""
+        if min_desired_corr is None or not(0 <= min_desired_corr < 1): raise ValueError("'min_desired_corr' must be between 0 and 1")
+        self._min_desired_corr = min_desired_corr
+
+
+
+    def reset_maxwt_param(self, w_max_to_avg):
+        """
+Reset the w_max_to_avg param (default=1000). This parameter controls the 'deviation' in feature weights computed by Schema and we recommend NOT changing it.
+This parameter specifies the maximum allowed value of max(schema_wts)/avg(schema_wts) and the default value is high enough to make this a non-binding constraint.
+
+#### Parameters
+`w_max_to_avg`: min_desired_corr
+
+    The new value of correlation
+
+     Sets the upper-bound on the ratio of w's largest element to w's avg element.
+     Making it large will allow for more severe transformations.
+
+    RECOMMENDED VALUES: We recommend keeping this parameter at its default value (1000); that keep this constraint 
+                        very loose and ensures that  min_desired_corr remains the binding constraint.
+                        Later, as you get a better sense for the right min_desired_corr values
+                        for your data, you can experiment with this too.
+
+                        To really constrain this, set it in the (1-5] range, depending on
+                        how many features you have.
+
+
+"""
+        if w_max_to_avg is None or w_max_to_avg <= 1: raise ValueError("'w_max_to_avg' must be either None or greater than 1")
+        self._w_max_to_avg = w_max_to_avg
+        
+    
         
     
     def fit(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, d0 = None, d0_dist_transform=None, secondary_data_dist_transform_list=None):
@@ -712,35 +769,52 @@ Given a dataset `d`, apply the fitted transform to it
         self._soln_info = dict(sl)
         print(' done.\n', end='', flush=True)
                 
+
         
     def _fit_affine(self, d, d0, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list):
         do_whiten = self._params.get("do_whiten",1)>0
         ncomp = self._params.get("num_top_components",None) #default is all
-
-        dx1 = d.copy()
         model_type = self._params.get("decomposition_model","pca").lower()
-
-        print('Running change-of-basis transform ({0}, {1} components)...'.format(model_type, ncomp), end='', flush=True)
+        dx1 = d.copy()
         
-        if model_type=="pca":
-            if not scipy.sparse.issparse(dx1):
-                self._decomp_mdl = sklearn.decomposition.PCA(n_components=ncomp, whiten=do_whiten)
-            else:
-                self._decomp_mdl = sklearn.decomposition.TruncatedSVD(n_components=ncomp)
-                schema_warning("Using TruncatedSVD instead of PCA because input is a sparse matrix. do_whiten arguments will be ignored")
-            dx = self._decomp_mdl.fit_transform(dx1)
+        if self._decomp_mdl is None:
+            print('Running change-of-basis transform ({0}, {1} components)...'.format(model_type, ncomp), end='', flush=True)
+
+            if model_type=="pca":
+                if not scipy.sparse.issparse(dx1):
+                    self._decomp_mdl = sklearn.decomposition.PCA(n_components=ncomp, whiten=do_whiten)
+                else:
+                    self._decomp_mdl = sklearn.decomposition.TruncatedSVD(n_components=ncomp)
+                    schema_warning("Using TruncatedSVD instead of PCA because input is a sparse matrix. do_whiten arguments will be ignored")
+                    
+                self._decomp_mdl.fit(dx1)
+
+            elif model_type=="nmf":
+                self._decomp_mdl = sklearn.decomposition.NMF(n_components=ncomp, init=None)
+                W = self._decomp_mdl.fit(dx1)
+                
+            self._orig_decomp_mdl = copy.deepcopy(self._decomp_mdl)
+            print(' done.')
             
+        else:
+            print('Reusing previous change-of-basis transformation')
+            self._decomp_mdl = copy.deepcopy(self._orig_decomp_mdl)
+
+        if model_type=="pca":
+            dx = self._decomp_mdl.transform(dx1)
+
         elif model_type=="nmf":
-            self._decomp_mdl = sklearn.decomposition.NMF(n_components=ncomp, init=None)
-            W = self._decomp_mdl.fit_transform(dx1, W=None, H=None)
+            W = self._decomp_mdl.transform(dx1)
             if do_whiten:
                 H = self._decomp_mdl.components_
                 wsd = W.std(axis=0)
                 W = W/wsd
                 self._decomp_mdl.components_ *= wsd[:,None]
             dx = W
+
+
             
-        print(' done.\nRunning quadratic program...', end='', flush=True)
+        print('Running quadratic program...', end='', flush=True)
         s, sl = self._fit_helper(dx, d0, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
 
         self._wts = np.maximum(s,0)
