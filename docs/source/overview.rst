@@ -8,7 +8,7 @@ single-cell biological datasets, it should work in other multi-modal
 contexts too.
 
 
-.. ../_static/Schema-Overview-v2.png
+.. image:: ../_static/Schema-Overview-v2.png
    :width: 540
    :alt: 'Overview of Schema'
 
