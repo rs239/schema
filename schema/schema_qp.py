@@ -166,8 +166,8 @@ class SchemaQP:
         Useful when you want to iterate over multiple choices of this parameter
         but want to re-use the computed PCA or NMF change-of-basis transform.
 
-        :param min_desired_corr: the new value of minimum required correlation
-            between original and transformed distances
+        :param min_desired_corr: 
+            The new value of minimum required correlation between original and transformed distances
 
         :type min_desired_corr: float in [0,1)
 
@@ -178,20 +178,23 @@ class SchemaQP:
 
 
     def reset_maxwt_param(self, w_max_to_avg):
-        """ Reset the w_max_to_avg param (default=1000). 
+        """ Reset the w_max_to_avg param
 
-        This parameter controls the 'deviation' in feature weights
-        computed by Schema and sets the upper-bound on the ratio of w's
-        largest element to w's avg element.  Making it large will allow
-        for more severe transformations.
+        :type w_max_to_avg: float
 
-        RECOMMENDED VALUES: We recommend keeping this parameter at its
-        default value (1000); that keep this constraint very loose and
-        ensures that min_desired_corr remains the binding constraint.
-        Later, as you get a better sense for the right min_desired_corr
-        values for your data, you can experiment with this too.
-        To really constrain this, set it in the (1-5] range, depending on
-        how many features you have.
+        :param w_max_to_avg: 
+            The upper-bound on the ratio of Schema weights (w's) largest
+            element to w's avg element.  Making it large will allow This
+            parameter controls the 'deviation' in feature weights and make it
+            large will allow for more severe transformations.
+
+            RECOMMENDED VALUES: We recommend keeping this parameter at its
+            default value (1000); that keep this constraint very loose and
+            ensures that min_desired_corr remains the binding constraint.
+            Later, as you get a better sense for the right min_desired_corr
+            values for your data, you can experiment with this too.  To really
+            constrain this, set it in the (1-5] range, depending on how many
+            features you have.
 
 """
         if w_max_to_avg is None or w_max_to_avg <= 1: raise ValueError("'w_max_to_avg' must be either None or greater than 1")
@@ -212,7 +215,8 @@ class SchemaQP:
 
         :type d: Numpy 2-d `array` or Pandas `dataframe`
 
-        :param d: The primary dataset (e.g. scanpy/anndata's .X).
+        :param d: 
+            The primary dataset (e.g. scanpy/anndata's .X).
 
             The rows are observations (e.g., cells) and the cols are variables (e.g.,
             gene expression).  The default distance measure computed is L2:
@@ -221,15 +225,16 @@ class SchemaQP:
 
         :type secondary_data_val_list: list of 1-d or 2-d Numpy arrays or Pandas series, each with same number of rows as `d`
 
-        :param secondary_data_val_list: The secondary datasets you want to align
-            the primary data towards.  Columns in Anndata .obs or .obsm variables
-            work well.
+        :param secondary_data_val_list: 
+            The secondary datasets you want to align the primary data towards.  
+
+            Columns in Anndata .obs or .obsm variables work well.
 
 
         :type secondary_data_type_list: list of strings
 
-        :param secondary_data_type_list: The datatypes of the secondary
-            modalities.
+        :param secondary_data_type_list: 
+            The datatypes of the secondary modalities.
 
             Each element of the list can be one of `auto,
             numeric, feature_vector, categorical,
@@ -253,9 +258,10 @@ class SchemaQP:
                equality.  The default distance measure is: 1*(val1!=val2)
 
 
-        :type secondary_data_wt_list: list of floats, optional (default: `None`)
+        :type secondary_data_wt_list: list of floats, **optional** (default= `None`)
 
-        :param secondary_data_wt_list: User-specified wts for each dataset. 
+        :param secondary_data_wt_list: 
+            User-specified wts for each dataset. 
 
             If `None`, the wts are 1.  If specified, the list's length should match
             the length of secondary_data_wt_list
@@ -266,38 +272,41 @@ class SchemaQP:
             secondary dataset
 
 
-        :type d0: A 1-d or 2-d numpy array, same number of rows as `d`, optional
-        (default: `None`)
+        :type d0: A 1-d or 2-d numpy array, **optional** 
 
-        :param d0: An alternative representation of the primary dataset.
+        :param d0: 
+            An alternative representation of the primary dataset.
 
             This is useful if you want to provide the primary dataset in two
             forms: one for transforming and another one for computing pairwise
             distances to use in the QP constraint; if so, `d` is used for the
-            former, while `d0` is used for the latter
+            former, while `d0` is used for the latter.
+
+            If specified, it should have the same number of rows as `d`.
 
             **HANDLE WITH CARE!** Most likely, you don't need this parameter.
 
 
-        :type d0_dist_transform: a function that takes a non-negative float as
-        input and returns a non-negative float, optional (default: `None`)
+        :type d0_dist_transform: float -> float function, **optional**
 
-        :param d0_dist_transform: The transformation to apply on d or d0's L2
-        distances before using them for correlations.
+        :param d0_dist_transform: 
+            The transformation to apply on d or d0's L2
+            distances before using them for correlations.
 
+            This function should take a non-negative float as input and return a non-negative float.
             **HANDLE WITH CARE!** Most likely, you don't need this parameter.
 
 
-        :type secondary_data_dist_transform: `list` of functions, each taking a
-        non-negative float and returning a non-negative float, optional (default:
-        `None`)
+        :type secondary_data_dist_transform: list of functions, **optional**
 
-        :param secondary_data_dist_transform: The transformations to apply on
+
+        :param secondary_data_dist_transform: 
+            The transformations to apply on
             secondary dataset's L2 distances before using them for correlations.
 
             If specified, the length of the list should match that of
-            secondary_data_val_list
-
+            `secondary_data_val_list`. 
+            Each function should take a non-negative float and return a non-negative float. 
             **HANDLE WITH CARE!** Most likely, you don't need this parameter.
 
         :returns: None
