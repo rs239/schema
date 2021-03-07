@@ -84,15 +84,15 @@ Source code available at: https://github.com/rs239/schema
              L2 distances in the transformed space and distances in the original space.
 
             RECOMMENDED VALUES: In typical use-cases of large biological datasets,
-              high values (> 0.80) will probably work best.  The default value of
-              0.99 is very high and will almost certainly prevent your primary
-              modality's biological information.  However, Schema should still be
-              able to identify an informative feature weighting at this scale.
+            high values (> 0.80) will probably work best.  The default value of
+            0.99 is very high and will almost certainly prevent your primary
+            modality's biological information.  However, Schema should still be
+            able to identify an informative feature weighting at this scale.
 
             Later you can experiment with a range of values (e.g., 0.99, 0.90,
-              0.80), or use feature-weights aggregated across an ensemble of
-               choices. Alternatively, you can use cross-validation to identify the
-               best setting
+            0.80), or use feature-weights aggregated across an ensemble of
+            choices. Alternatively, you can use cross-validation to identify the
+            best setting
 
         :type min_desired_corr: float in [0,1)
 
@@ -100,25 +100,22 @@ Source code available at: https://github.com/rs239/schema
             scaling transformation
 
             * 'affine' first does a mapping to PCA or NMF space (you can specify
-                 n_components via the 'params' argument) It then does a scaling
-                 transform in that space and then maps everything back to the
-                 regular space, the final space being an affine transformation
+               n_components via the 'params' argument) It then does a scaling
+               transform in that space and then maps everything back to the
+               regular space, the final space being an affine transformation
 
             * 'scale' does not the PCA or NMF mapping and directly does the
-                 scaling transformation. NOTE: This can be slow if the primary
-                 modality's dimensionality is over 100.
+               scaling transformation. NOTE: This can be slow if the primary
+               modality's dimensionality is over 100.
 
             RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to
-                                do the change-of-basis.  You'll want 'scale' only
-                                in one of two cases:
+            do the change-of-basis.  You'll want 'scale' only in one of two cases:
 
-                                 # You have some features on which you directly
-                                   want Schema to compute feature-weights.  
+            # You have some features on which you directly want Schema to compute feature-weights.  
 
-                                 # You want to do a change-of-basis transform other
-                                   PCA or NMF. If so, you will need to do that
-                                   yourself and then call SchemaQP with the
-                                   transformed primary dataset with mode='scale'.
+            # You want to do a change-of-basis transform other PCA or NMF. 
+            If so, you will need to do that  yourself and then call SchemaQP with the
+            transformed primary dataset with mode='scale'.
 
         :type mode: string
 
@@ -131,7 +128,7 @@ Source code available at: https://github.com/rs239/schema
                * decomposition_model: "pca" or "nmf"   (default=pca)
 
                * num_top_components: (default=50) number of PCA (or NMF)
-                   components to use when mode=="affine".
+                 components to use when mode=="affine".
 
              You can ignore the rest on your first pass; the default values are
              pretty reasonable: 
