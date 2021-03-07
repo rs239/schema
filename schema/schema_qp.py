@@ -81,21 +81,23 @@ Source code available at: https://github.com/rs239/schema
         """Create the SchemaQP class (QP = Quadratic Programming)
 
         :param min_desired_corr: 
-            The minimum desired correlation between squared L2 distances 
-            in the transformed space and distances in the original space.
-            This is the key free-parameter in Schema and controls the trade-off
-            between deviating from the primary modality's original data and 
-            achieving agreement with the secondary modalities. Values close to one
-            result in lower distortion of the primary modality. With these, the 
-            distortion will be low, but it may nonetheless be sufficient to pick up
-            information from the secondary modalities. Furthermore, the feature weights
-            will likely still be quite infromative.  
+            This parameter controls how severe the transformation of the
+            primary modality will be and is the main free-parameter in
+            Schema.  It is the minimum required correlation between
+            distances in the transformed space and those in the original
+            space, for the primary modality. It controls the trade-off
+            between deviating from the primary modality's original data
+            and achieving agreement with the secondary modalities. Values
+            close to one result in lower distortion of the primary
+            modality. With these, the distortion will be low, but enough
+            for Schema to integrate information from the secondary modalities. 
+            Furthermore, the feature weights will likely still be quite infromative.
 
             RECOMMENDED VALUES: 
-            In typical use-cases of large biological datasets, high values (> 0.80) 
-            will probably work best.  The default value of
-            0.99 is a safe choice to start with-- it poses low risk of deviating too
-            far from the primary modality. 
+            In typical single-cell use cases, high values (> 0.80) will
+            probably work best.  The default value of 0.99 is a safe
+            choice to start with-- it poses low risk of deviating too far
+            from the primary modality.
 
             Later you can experiment with a range of values (e.g., 0.99, 0.90,
             0.80), or use feature-weights aggregated across an ensemble of
@@ -109,22 +111,24 @@ Source code available at: https://github.com/rs239/schema
             scaling transformation
 
             * 'affine' first does a mapping to PCA or NMF space (you can specify
-            n_components via the 'params' argument) It then does a scaling
-            transform in that space and then maps everything back to the
-            regular space, the final space being an affine transformation
+              n_components via the 'params' argument) It then does a
+              scaling transform in that space and then maps everything back
+              to the regular space, the final space being an affine
+              transformation
 
             * 'scale' does not the PCA or NMF mapping and directly does the
-            scaling transformation. NOTE: This can be slow if the primary
-            modality's dimensionality is over 100.
+              scaling transformation. NOTE: This can be slow if the primary
+              modality's dimensionality is over 100.
+
 
             RECOMMENDED VALUES: 'affine' is the default, which uses PCA or NMF to
             do the change-of-basis.  You'll want 'scale' only in one of two cases:
 
-            # You have some features on which you directly want Schema to compute feature-weights.  
+            * You have some features on which you directly want Schema to compute feature-weights.  
 
-            # You want to do a change-of-basis transform other PCA or NMF. 
-            If so, you will need to do that  yourself and then call SchemaQP with the
-            transformed primary dataset with mode='scale'.
+            * You want to do a change-of-basis transform other PCA or NMF. 
+              If so, you will need to do that  yourself and then call SchemaQP with the
+              transformed primary dataset with mode='scale'.
 
         :type mode: string
 
