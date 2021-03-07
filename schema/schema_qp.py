@@ -53,10 +53,10 @@ class SchemaQP:
             values (> 0.80) will probably work best. With these, the
             distortion will be low, but still be enough for Schema to
             extract relevant information from the secondary modalities.
-            Furthermore, the feature weights computed by Schema will
-            likely be quite infromative.
+            Furthermore, the feature weights computed by Schema should
+            still be quite infromative.
 
-            The default value of 0.99 is a safe choice to start with-- it
+            The default value of 0.99 is a safe choice to start with; it
             poses low risk of deviating too far from the primary modality.
 
             Later, you can experiment with a range of values (e.g., 0.95
@@ -204,13 +204,13 @@ class SchemaQP:
         """Compute the optimal Schema transformation, first performing a
         change-of-basis transformation if required.
 
-        Given the primary dataset 'd' and a list of secondary datasets, fit a
-        linear transformation (d*) of 'd' such that the correlation between
-        squared pairwise distances in d* and those in secondary datasets is
-        maximized while the correlation between the primary dataset d and d*
+        Given the primary dataset `d` and a list of secondary datasets, fit a
+        linear transformation of `d_new` such that the correlation between
+        squared pairwise distances in `d_new` and those in secondary datasets is
+        maximized while the correlation between the original `d` and the transformed `d_new`
         remains above min_desired_corr
 
-        :type d: A numpy 2-d `array` or Pandas `dataframe`
+        :type d: Numpy 2-d `array` or Pandas `dataframe`
 
         :param d: The primary dataset (e.g. scanpy/anndata's .X).
 
@@ -219,40 +219,38 @@ class SchemaQP:
             sum((point1-point2)**2). See `d0_dist_transform`.
 
 
-        :type secondary_data_val_list: list of 1-d or 2-d numpy arrays, each with
-        same number of rows as `d`
+        :type secondary_data_val_list: list of 1-d or 2-d Numpy arrays or Pandas series, each with same number of rows as `d`
 
         :param secondary_data_val_list: The secondary datasets you want to align
             the primary data towards.  Columns in Anndata .obs or .obsm variables
-            work well (just remember to use .values)
+            work well.
 
 
-        :type secondary_data_type_list: list of strings. 
+        :type secondary_data_type_list: list of strings
 
         :param secondary_data_type_list: The datatypes of the secondary
             modalities.
 
-            Each element of the list can be one of :py:`auto,
+            Each element of the list can be one of `auto,
             numeric, feature_vector, categorical,
-            feature_vector_categorical`. :py:`auto` is the default,
+            feature_vector_categorical` (default=`auto`).
+            The list's length should match the length of secondary_data_val_list
 
-                The list's length should match the length of secondary_data_val_list
+            * `numeric` means you're giving one floating-pt value for each obs.
+              The default distance measure is L2: (point1-point2)^2 
 
-                * `numeric` means you're giving one floating-pt value for each obs.
-                  The default distance measure is L2: (point1-point2)**2 
+            * `feature_vector` means you're giving some multi-dimensional
+              representation for each obs.  The default distance measure is 
+              L2: sum_{i}((point1[i]-point2[i])^2) 
 
-                * `feature_vector` means you're giving some multi-dimensional
-                  representation for each obs.  The default distance measure is 
-                  L2: sum_{i}((point1[i]-point2[i])**2) 
+            * `feature_vector_categorical` means you're giving some
+              multi-dimensional representation for each obs.  Each column
+              can take on categorical values, so the distance between two
+              points is sum_{i}(point1[i]==point2[i])
 
-                * `feature_vector_categorical` means you're giving some
-                  multi-dimensional representation for each obs.  Each column
-                  can take on categorical values, so the distance between two
-                  points is sum_{i}(point1[i]==point2[i])
-
-                * `categorical` means that you
-                   are providing label information that should be compared for
-                   equality.  The default distance measure is: 1*(val1!=val2)
+            * `categorical` means that you
+               are providing label information that should be compared for
+               equality.  The default distance measure is: 1*(val1!=val2)
 
 
         :type secondary_data_wt_list: list of floats, optional (default: `None`)
