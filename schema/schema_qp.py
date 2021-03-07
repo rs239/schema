@@ -63,7 +63,8 @@ Source code available at: https://github.com/rs239/schema
     gene_wts = sqp.feature_weights() # get gene importances
 
 
-:Example: Correlate gene expression 1) positive with ATAC-Seq data and 2) negatively with Batch information::
+:Example: Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information::
+.. code-block:: Python
 
     atac_30d = sklearn.decomposition.TruncatedSVD(50).fit_transform( atac_cnts_sp_matrix)
     sqp = SchemaQP(min_corr=0.9)
@@ -80,7 +81,7 @@ Source code available at: https://github.com/rs239/schema
         """Create the SchemaQP class (QP = Quadratic Programming)
 
 :param min_desired_corr: The minimum desired correlation between squared
-L2 distances in the transformed space and distances in the original space.
+    L2 distances in the transformed space and distances in the original space.
 
     RECOMMENDED VALUES: In typical use-cases of large biological datasets,
       high values (> 0.80) will probably work best.  The default value of
@@ -88,15 +89,15 @@ L2 distances in the transformed space and distances in the original space.
       modality's biological information.  However, Schema should still be
       able to identify an informative feature weighting at this scale.
 
-      Later you can experiment with a range of values (e.g., 0.99, 0.90,
-       0.80), or use feature-weights aggregated across an ensemble of
+    Later you can experiment with a range of values (e.g., 0.99, 0.90,
+      0.80), or use feature-weights aggregated across an ensemble of
        choices. Alternatively, you can use cross-validation to identify the
        best setting
 
 :type min_desired_corr: float in [0,1)
 
 :param mode: Whether to perform a general affine transformation or just a
-scaling transformation
+    scaling transformation
 
     * 'affine' first does a mapping to PCA or NMF space (you can specify
          n_components via the 'params' argument) It then does a scaling
