@@ -44,14 +44,16 @@ interpretable synthesis of heterogeneous single-cell modalities"
 Source code available at: https://github.com/rs239/schema
 
 
-:Example: (Quick start) correlate gene expression with developmental stage. We demonstrate use with Anndata objects here::
+:Example: (Quick start) correlate gene expression with developmental stage. We demonstrate use with Anndata objects here.
+.. code-block:: Python
 
     sqp = SchemaQP() # initialize with default params (min_corr = 0.99)
     mod_X = sqp.fit_transform( adata.X, [ adata.obs['stage'] ]) # correlate the gene expression with the 'stage' parameter
     gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the correlation
 
 
-:Example: Correlate gene expression with three secondary modalities::
+:Example: Correlate gene expression with three secondary modalities.
+.. code-block:: Python
 
     sqp = SchemaQP(min_corr = 0.9) # lower than the default, allowing greater distortion of the primary modality 
     sqp.fit( adata.X,    
