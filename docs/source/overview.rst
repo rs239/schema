@@ -7,7 +7,6 @@ modalities. While it has been specially designed for multi-modal
 single-cell biological datasets, it should work in other multi-modal
 contexts too.
 
- 
 .. image:: ../_static/Schema-Overview-v2.png
    :width: 594
    :alt: 'Overview of Schema'
@@ -21,30 +20,25 @@ per-cell metadata is available (e.g., cell age, donor information, batch
 ID etc.). With this data, Schema can help perform analyses like:
 
   * Characterize cells that look similar transcriptionally but differ
-    epigenetically, identifying genes that are differentially expressed
-    in them.
+    epigenetically.
 
   * Improve cell-type inference by combining RNA-seq and ATAC-seq data.
 
   * In spatially-resolved single-cell data, identify differentially
-    expressed genes (DEGs) specific to a spatial pattern (e.g., DEGs in
-    normal cells near a tumor cell).
+    expressed genes (DEGs) specific to a spatial pattern.
+
+  * **Improved visualizations**: tune t-SNE or UMAP plots to more clearly
+    arrange cells along a desired manifold. 
 
   * Simultaneously account for batch information while also integrating
     other modalities. For example, Schema can help identify gene whose
     expression varies across developmental stages *and* is robust across
     replicates.
 
-  * **Improved visualizations**: tune t-SNE or UMAP plots to more clearly
-    arrange cells along a desired manifold. Schema helps you do this by
-    infusing just enough of the desired information into scRNA-seq data
-    so that it shows up in the visualization but not distort the original
-    expression data so much that the initial layout is destroyed. 
-
-To integrate multi-modal data, Schema takes a * `metric learning`_ *
+To integrate multi-modal data, Schema takes a *`metric learning`_*
 approach. Each modality is interepreted as a multi-dimensional space, with
 observations mapped to points in it (**B** in figure above). We associate
-a distance metric with each modality; the metric reflects what it means
+a distance metric with each modality: the metric reflects what it means
 for cells to be similar under that modality. For example, Euclidean
 distances between L2-normalized expression vectors are a proxy for
 coexpression. Across the three graphs in the figure above, the dashed and
@@ -53,18 +47,20 @@ observations. Our goal is to produce a new representation where the
 distances between points is informed jointly by all the modalities.
 
 In Schema, you start by designating one high-confidence modality as the
-primary (i.e., reference) and the remaining modalities as secondary. In
+*primary* (i.e., reference) and the remaining modalities as *secondary*. In
 many cases, scRNA-seq is a good choice for the primary modality, with
 other modalities providing independent insight into how
 transcriptionally-similar cells might vary. Schema transforms the
 primary-modality space by scaling each dimension so that the distances in
 the transformed space have a higher (or lower, as desired) correlation
 with corresponding distances in the secondary modalities (**C,D** in the
-figure above). In generating such a shared-space representation, Schema is
+figure above).
+
+In generating such a shared-space representation, Schema is
 similar to classical approaches like CCA (canonical correlation analysis)
-or deep-learning methods like autoencoders (which maps multiple
+or deep-learning methods like autoencoders (which can map multiple
 representations into a shared space). Schema differs from these approaches
-in the following way:
+in the following ways:
 
   * Constrained transformation:
 
