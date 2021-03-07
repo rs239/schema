@@ -19,7 +19,7 @@ simultaneously-asayed scRNA-seq and scATAC-seq data, or a
 spatial-transcriptomics dataset (e.g. 10x Visium, Slideseq or
 STARmap). Schema can also be used with just a scRNA-seq dataset where some
 per-cell metadata is available (e.g., cell age, donor information, batch
-ID etc.). Schema can help answer questions like:
+ID etc.). With this data, Schema can help answer questions like:
 
   * Characterize cells that look similar transcriptionally but differ
     epigenetically, and identify genes that are differentially expressed
@@ -28,7 +28,7 @@ ID etc.). Schema can help answer questions like:
   * Improve cell-type inference by combining RNA-seq and ATAC-seq data.
 
   * In spatially-resolved single-cell data, identify differentially
-    expressed genes (DEGs) by a specified spatial pattern (e.g., DEGs in
+    expressed genes (DEGs) specific to a spatial pattern (e.g., DEGs in
     normal cells near a tumor cell)
 
   * Simultaneously account for batch information while also integrating
@@ -36,11 +36,11 @@ ID etc.). Schema can help answer questions like:
     expression varies across developmental stages *and* is robust across
     replicates.
 
-  * Improved visualizations: tune t-SNE or UMAP plots to accentuate a
-    specific characteristic. Schema helps you do this by infusing a small
-    amount of new information into scRNA-seq data but ensuring that the
-    change in the original data is not so large that the visualization is
-    destroyed.
+  * **Improved visualizations**: tune t-SNE or UMAP plots to more clearly
+    arrange cells along a desired manifold. Schema helps you do this by
+    infusing a small amount of new information into scRNA-seq data but
+    ensuring that the change in the original data is not so large that the
+    visualization is destroyed.
 
  
 
