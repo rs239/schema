@@ -208,7 +208,7 @@ class SchemaQP:
         change-of-basis transformation if required.
 
         Given the primary dataset `d` and a list of secondary datasets, fit a
-        linear transformation of `d_new` such that the correlation between
+        linear transformation (`d_new`) such that the correlation between
         squared pairwise distances in `d_new` and those in secondary datasets is
         maximized while the correlation between the original `d` and the transformed `d_new`
         remains above min_desired_corr
@@ -354,19 +354,19 @@ class SchemaQP:
             
             
     def transform(self, d):
-        """
-Given a dataset `d`, apply the fitted transform to it
+        """Given a dataset `d`, apply the fitted transform to it
 
-:type d: Numpy 2-d array
+        :type d: Numpy 2-d array
 
-:param d: 
-    The primary modality data on which to apply the transformation. `d` must have with same number of columns as in `fit(...)`
+        :param d: 
+            The primary modality data on which to apply the transformation. 
 
-    The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
+            `d` must have with same number of columns as in `fit(...)`.
+            The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
 
 
-:returns: a 2-d numpy array with the same shape as `d`
-         """
+        :returns: a 2-d numpy array with the same shape as `d`
+ """
         
         if self._mode=="scale":
             if not (d.shape[1] == len(self._wts)): raise ValueError('Number of columns in d is incorrect')
