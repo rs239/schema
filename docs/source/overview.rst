@@ -77,11 +77,11 @@ allows it to offer the following advantages:
     space that picks up on artifacts rather than true biology. A key
     feature of Schema is its regularization: you specify a maximum limit
     on the distortion of the primary modality. Thus, a noisy secondary
-    modality's contribution to the final result can be constrained.
+    modality's contribution to the final result is constrained.
 
-  * **Speed and flexibiility**: Schema is a based on a fast quadratic
+  * **Speed and flexibility**: Schema is a based on a fast quadratic
     programming approach that allows for substantial flexibility in the
-    number of secondary modalities and their relative weights. Also, arbitrary
+    number of secondary modalities supported and their relative weights. Also, arbitrary
     distance metrics (i.e., kernels) are supported for the secondary modalities.
 
     
@@ -89,11 +89,13 @@ Quick Start
 ~~~~~~~~~~~
 
 Install via pip
+
 .. code-block:: bash
 
     pip install schema_learn
 
-Correlate gene expression with developmental stage. We demonstrate use with Anndata objects here.
+**Example**: correlate gene expression with developmental stage. We demonstrate use with Anndata objects here.
+
 .. code-block:: Python
 
     import schema

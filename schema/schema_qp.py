@@ -291,7 +291,7 @@ class SchemaQP:
 
             **Handle with care:** Most likely, you don't need this parameter.
 
-        :type d0: A 1-d or 2-d numpy array, **optional** 
+        :type d0: A 1-d or 2-d Numpy array, **optional** 
 
         :param d0: 
             An alternative representation of the primary dataset.
@@ -369,7 +369,7 @@ class SchemaQP:
             The rows are observations (e.g., cells) and the cols are variables (e.g., gene expression).
 
 
-        :returns: a 2-d numpy array with the same shape as `d`
+        :returns: a 2-d Numpy array with the same shape as `d`
  """
         
         if self._mode=="scale":
@@ -402,12 +402,12 @@ class SchemaQP:
     def _getDistances(self, D, d0_in, G, nPointPairs):
         """
         Compute the various distances between point pairs in D
-        D is a NxK numpy type 2-d array, with N points, each of K dimensions
+        D is a NxK Numpy type 2-d array, with N points, each of K dimensions
         d0_in could be None, in which D is used to compute distances for the original space.
            Otherwise, d0_in is Nxr (r>=1) array and original-space distances are computed from this. 
         G is list, with each entry a 3-tuple: (g_val, g_type, gamma_g)
            each 3-tuple corresponds to one dimension of side-information
-             g_val is Nx1 numpy type 1-d vector of values for the N points, in the same order as D
+             g_val is Nx1 Numpy type 1-d vector of values for the N points, in the same order as D
              g_type is "numeric", "categorical", or "feature_vector"
              gamma_g is the relative wt you want to give this column. You can leave 
                it as None for all 3-tuples, but not for just some. If you leave them
