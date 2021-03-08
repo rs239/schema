@@ -9,16 +9,20 @@
 ###################################################################
 
 import sys, copy, os
-import scanpy as sc
 
-#### local directory imports ####
-oldpath = copy.copy(sys.path)
-sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))+"/../")
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import scanpy as sc
 
-from schema_base_config import *
 
-sys.path = copy.copy(oldpath)
-####
+# #### local directory imports ####
+# oldpath = copy.copy(sys.path)
+# sys.path.insert(0, os.path.dirname(os.path.abspath(__file__))+"/../")
+
+# from schema_base_config import *
+
+# sys.path = copy.copy(oldpath)
+# ####
 
 
 
