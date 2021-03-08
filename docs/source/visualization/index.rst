@@ -30,17 +30,17 @@ First, let's get the data and do a regular UMAP plot.
     import scanpy as sc
     import anndata
     
-    def sc_umap_pipeline(bdata):
+    def sc_umap_pipeline(bdata, fig_suffix):
         sc.pp.pca(bdata)
 	sc.pp.neighbors(bdata, n_neighbors=15)
 	sc.tl.umap(bdata)
-	sc.pl.umap(bdata, color='age', color_map='coolwarm')
+	sc.pl.umap(bdata, color='age', color_map='coolwarm', save='_{}.png'.format(fig_suffix) )
 
 	
 .. code-block:: Python
     
     adata = schema.datasets.fly_brain()  # adata has scRNA-seq data & cell age
-    sc_umap_pipeline(adata)
+    sc_umap_pipeline(adata, 'regular')
 
 This should produce a plot like this, where cells are colored by age. Note
 how the age does not look to be a defining feature of the plot:
@@ -56,7 +56,7 @@ Next, we apply Schema to infuse cell age into the scRNA-seq data, while preservi
 		           params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
 		    
     mod999_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ], ['numeric'])  # correlate gene expression with the age
-    sc_umap_pipeline( anndata.AnnData( mod999_X, obs=adata.obs) )
+    sc_umap_pipeline( anndata.AnnData( mod999_X, obs=adata.obs), '0.999' )
 
 We then loosen the `min_desired_corr` constraint a tiny bit, to 99%
 
@@ -65,7 +65,7 @@ We then loosen the `min_desired_corr` constraint a tiny bit, to 99%
     sqp.reset_mincorr_param(0.99) # we can re-use the NMF transform (which takes more time than the quadratic program)
     
     mod990_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ], ['numeric']) 
-    sc_umap_pipeline( anndata.AnnData( mod990_X, obs=adata.obs) )
+    sc_umap_pipeline( anndata.AnnData( mod990_X, obs=adata.obs), '0.990' )
     
     diffexp_gene_wts = sqp.feature_weights() # get a ranking of genes important to the alignment
     

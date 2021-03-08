@@ -12,8 +12,8 @@ import pandas as pd
 import numpy as np
 import numba
 import scipy, sklearn
-import os, sys, string, fileinput, glob, re, math, itertools, functools, copy, logging
-import sklearn.decomposition, sklearn.preprocessing, sklearn.linear_model, sklearn.covariance
+import os, sys, string, fileinput, glob, re, math, itertools, functools, copy, logging, warnings
+import sklearn.decomposition, sklearn.preprocessing
 import cvxopt
 
 #### local directory imports ####
