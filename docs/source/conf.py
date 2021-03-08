@@ -31,7 +31,7 @@ copyright = '2020, Rohit Singh, Ashwin Narayan, Brian Hie'
 author = 'Rohit Singh, Ashwin Narayan, Brian Hie'
 
 # The full version, including alpha/beta/rc tags
-release = '0.0.5'
+release = '0.0.75'
 
 master_doc = 'index'
 
@@ -41,6 +41,10 @@ master_doc = 'index'
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
 extensions = [ 'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinx.ext.autodoc']
+
+
+autoclass_content = 'both'
+autodoc_mock_imports = ["scanpy"]
 
 
 # Add any paths that contain templates here, relative to this directory.
@@ -69,9 +73,6 @@ html_theme_options = {
 # so a file named "default.css" will overwrite the builtin "default.css".
 html_static_path = ['../_static']
 html_logo = '../_static/Schema-webpage-logo-2-blue.png'
-
-autoclass_content = 'both'
-autodoc_mock_imports = ["scanpy"]
 
 
 # def skip(app, what, name, obj, would_skip, options):

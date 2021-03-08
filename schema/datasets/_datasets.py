@@ -10,9 +10,13 @@
 
 import sys, copy, os, warnings
 
-with warnings.catch_warnings():
-    warnings.simplefilter("ignore")
-    import scanpy as sc
+try:
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        import scanpy
+except:
+    print(dir())
+    raise
 
 
 # #### local directory imports ####
@@ -31,6 +35,6 @@ def fly_brain():
     """ Anndata object containing scRNA-seq data of the ageing Drosophila brain (GSE107451, Davie et al., Cell 2018)
 """
     
-    adata = sc.read("datasets/Davie_fly_brain.h5", backup_url="http://schema.csail.mit.edu/datasets/Davie_fly_brain.h5")
+    adata = scanpy.read("datasets/Davie_fly_brain.h5", backup_url="http://schema.csail.mit.edu/datasets/Davie_fly_brain.h5")
     return adata
 
