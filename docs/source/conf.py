@@ -20,10 +20,7 @@ matplotlib.use('agg')
 #sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)) + "/../../schema/"]
 #import schema_qp
 
-autodoc_mock_imports = ["scanpy"]
-
 sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)) + "/../../"]
-import schema
 
 
 # -- Project information -----------------------------------------------------
@@ -76,10 +73,7 @@ html_static_path = ['../_static']
 html_logo = '../_static/Schema-webpage-logo-2-blue.png'
 
 
-# def skip(app, what, name, obj, would_skip, options):
-#     if name == "__init__":
-#         return False
-#     return would_skip
+autodoc_mock_imports = ["scanpy"]
 
-# def setup(app):
-#     app.connect("autodoc-skip-member", skip)
+
+import schema
