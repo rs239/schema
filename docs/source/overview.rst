@@ -104,9 +104,15 @@ Install via pip
 
     import schema
     adata = schema.datasets.fly_brain()  # adata has scRNA-seq data & cell age
+    
     sqp = SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq distances
 		    params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
-    mod_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ])  # correlate the gene expression with the 'age' parameter
+		    
+    #correlate the gene expression with the 'age' parameter
+    mod_X = sqp.fit_transform( adata.X, # primary modality
+                               [ adata.obs['age'] ], # list of secondary modalities
+			       [ 'numeric' ] )  # datatypes of secondary modalities
+			       
     gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the alignment
 
 

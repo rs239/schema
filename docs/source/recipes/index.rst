@@ -14,8 +14,8 @@ Recipes
 
     sqp = SchemaQP(min_corr = 0.9) # lower than the default, allowing greater distortion of the primary modality 
     sqp.fit( adata.X,    
-                 [ adata.obs['col1'], adata.obs['col2'], adata.obsm['Matrix1'] ], 
-                 [ "categorical", "numeric", "feature_vector"]) # data types of the three modalities
+             [ adata.obs['col1'], adata.obs['col2'], adata.obsm['Matrix1'] ], 
+             [ "categorical", "numeric", "feature_vector"]) # data types of the three modalities
     mod_X = sqp.transform( adata.X) # transform
     gene_wts = sqp.feature_weights() # get gene importances
 
