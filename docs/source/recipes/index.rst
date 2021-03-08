@@ -2,16 +2,14 @@ Recipes
 =======
 
 
-Coming soon: examples of cell-type inference, differential gene expression analysis, batch effect correction. 
-
-
- For example, Schema can help identify gene whose
+*Note*: the examples in this section currently are skeleton examples without real data. We will soon be updating these. 
     expression varies across developmental stages *and* is robust across
     replicates.
 
 
  
-:Example: Correlate gene expression with three secondary modalities.
+**Example** Correlate gene expression with three secondary modalities.
+
 .. code-block:: Python
 
     sqp = SchemaQP(min_corr = 0.9) # lower than the default, allowing greater distortion of the primary modality 
@@ -22,7 +20,8 @@ Coming soon: examples of cell-type inference, differential gene expression analy
     gene_wts = sqp.feature_weights() # get gene importances
 
 
-:Example: Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information::
+**Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information::
+  
 .. code-block:: Python
 
     atac_30d = sklearn.decomposition.TruncatedSVD(50).fit_transform( atac_cnts_sp_matrix)

@@ -43,7 +43,7 @@ First, let's get the data and do a regular UMAP plot.
     sc_umap_pipeline(adata)
 
 This should produce a plot like this, where cells are colored by age. Note
-how the age does really stand out as defining feature of the plot:
+how the age does not look to be a defining feature of the plot:
 
 .. image:: ../_static/umap_flybrain_regular_r3.png
 
@@ -62,7 +62,7 @@ Next, we apply Schema to infuse cell age into the scRNA-seq data, while preservi
     
     diffexp_gene_wts = sqp.feature_weights() # get a ranking of genes important to the alignment
     
-This produces a plot like the one shown below. Note how cell-age now stands out as a defining characteristic. We also encourage you to try out other choices of `min_desired_corr` (e.g., 0.999 or 0.7) which will show how the plot changes gradually, as greater distortion of the primary modality is allowed. This example also illustrates Scehma's interpretability. The variable `gene_wts` identifies the genes most important to aligning scRNA-seq with cell age. As we describe in our `paper`_, these genes turn out to be differentially expressed between young cells and old cells.
+This produces a plot like the one shown below. Note how cell-age now stands out more in the plot. We also encourage you to try out other choices of `min_desired_corr` (e.g., 0.999 or 0.7) which will show how the plot changes gradually, as greater distortion of the primary modality is allowed. This example also illustrates Scehma's interpretability. The variable `gene_wts` identifies the genes most important to aligning scRNA-seq with cell age. As we describe in our `paper`_, these genes turn out to be differentially expressed between young cells and old cells.
 
 .. image:: ../_static/umap_flybrain_schema0.99_r3.png
 

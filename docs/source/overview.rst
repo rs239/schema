@@ -44,17 +44,19 @@ for cells to be similar under that modality. For example, Euclidean
 distances between L2-normalized expression vectors are a proxy for
 coexpression. Across the three graphs in the figure (**B**), the dashed and
 dotted lines indicate distances between the same pairs of
-observations. Our goal is to learn a new distance metric between points
-that is informed jointly by all the modalities.
+observations. 
 
-In Schema, you start by designating one high-confidence modality as the
-*primary* (i.e., reference) and the remaining modalities as *secondary*. In
-many cases, we find scRNA-seq to be a good choice for the primary modality.
-Schema transforms the
-primary-modality space by scaling each dimension so that the distances in
-the transformed space have a higher (or lower, as desired) correlation
-with corresponding distances in the secondary modalities (**C,D** in the
-figure above).
+Schema's seeks to learn a new distance metric between points, informed
+jointly by all the modalities. In Schema, we start by designating one
+high-confidence modality as the *primary* (i.e., reference) and the
+remaining modalities as *secondary*-- we've found scRNA-seq to typically
+be a good choice for the primary modality.  Schema transforms the
+primary-modality space by scaling each of its dimensions so that the
+distances in the transformed space have a higher (or lower, if desired!)
+correlation with corresponding distances in the secondary modalities
+(**C,D** in the figure above). The primary modality can pre-transformed by
+a PCA or NMF transformation so that the scaling occurs in this latter
+space; this can often be more powerful.
 
 Advantages
 ~~~~~~~~~~
@@ -74,11 +76,12 @@ allows it to offer the following advantages:
 
   * **Regularization**: single-cell data can be sparse and noisy. As we
     show in our `paper`_, unconstrained approaches like CCA and
-    autoencoders can "overfit" in these situations by identifying a shared
-    space that picks up on artifacts rather than true biology. A key
-    feature of Schema is its regularization: you specify a maximum limit
-    on the distortion of the primary modality, thus constraining a noisy secondary
-    modality's contribution to the final result.
+    autoencoders seek to maximize the alignment between modalities without
+    any other considerations. In doing so, they can pick up on artifacts
+    rather than true biology. A key feature of Schema is its
+    regularization: if enforces a limit on the distortion of the primary
+    modality, making sure that the final result remains biologically
+    informative.
 
   * **Speed and flexibility**: Schema is a based on a fast quadratic
     programming approach that allows for substantial flexibility in the
@@ -102,7 +105,7 @@ Install via pip
     import schema
     adata = schema.datasets.fly_brain()  # adata has scRNA-seq data & cell age
     sqp = SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq distances
-		    params= {'decompositon_model': 'nmf', 'num_top_components': 20} )
+		    params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
     mod_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ])  # correlate the gene expression with the 'age' parameter
     gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the alignment
 
@@ -110,8 +113,8 @@ Install via pip
 Paper & Code
 ~~~~~~~~~~~~
 
-Schema is described in the paper “Schema: metric learning enables
-interpretable synthesis of heterogeneous single-cell modalities" 
+Schema is described in the paper *Schema: metric learning enables
+interpretable synthesis of heterogeneous single-cell modalities*
 (http://doi.org/10.1101/834549)
 
 Source code available at: https://github.com/rs239/schema
