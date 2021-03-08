@@ -35,7 +35,7 @@ ID etc.). With this data, Schema can help perform analyses like:
     expression varies across developmental stages *and* is robust across
     replicates.
 
-To integrate multi-modal data, Schema takes a *`metric learning`_*
+To integrate multi-modal data, Schema takes a `metric learning`_
 approach. Each modality is interepreted as a multi-dimensional space, with
 observations mapped to points in it (**B** in figure above). We associate
 a distance metric with each modality: the metric reflects what it means
@@ -43,30 +43,42 @@ for cells to be similar under that modality. For example, Euclidean
 distances between L2-normalized expression vectors are a proxy for
 coexpression. Across the three graphs in the figure above, the dashed and
 dotted lines indicate distances between the same pairs of
-observations. Our goal is to produce a new representation where the
-distances between points is informed jointly by all the modalities.
+observations. Our goal is to learn a new distance metric between points
+that is informed jointly by all the modalities.
 
 In Schema, you start by designating one high-confidence modality as the
 *primary* (i.e., reference) and the remaining modalities as *secondary*. In
-many cases, scRNA-seq is a good choice for the primary modality, with
-other modalities providing independent insight into how
-transcriptionally-similar cells might vary. Schema transforms the
+many cases, we find scRNA-seq to be a good choice for the primary modality.
+Schema transforms the
 primary-modality space by scaling each dimension so that the distances in
 the transformed space have a higher (or lower, as desired) correlation
 with corresponding distances in the secondary modalities (**C,D** in the
 figure above).
 
-In generating such a shared-space representation, Schema is
-similar to classical approaches like CCA (canonical correlation analysis)
-or deep-learning methods like autoencoders (which can map multiple
-representations into a shared space). Schema differs from these approaches
-in the following ways:
+In generating such a shared-space representation, Schema is similar to
+classical approaches like CCA (canonical correlation analysis) as well as
+deep-learning methods like autoencoders (which map multiple
+representations into a shared space). Each of these approaches offers a
+different set of trade-offs. Schema, for instance, requires the output
+space to be a linear transformation of the primary modality. Doing so
+allows it to offer the following advantages:
 
-  * Constrained transformation:
+  * Interpretability: one can identify which features of the primary
+    modality were important in maximizing its agreement with the secondary
+    modalities.
 
-  * Interpretability:
+  * Constrained transformation: single-cell data is sparse and noisy and
+    as we show in our paper, unconstrained approaches like CCA and
+    autoencoders can "overfit", by identifying a shared space that picks
+    up on artifacts rather than true biology. A key feature of Schema is
+    that one can limit the distortion of the primary modality when
+    transforming it. Thus, a noisy secondary modality's contribution can
+    be limited.
 
-  * Speed and flexibiility:
+  * Speed and flexibiility: Schema is a based on a fast quadratic
+    programming approach that allows for substantial flexibility in the
+    number of secondary modalities, their relative weights, and the
+    distance metrics used there.
 
 
 ; arbitrary distance metrics are allowed for the latter. Importantly, the transformation is provably guaranteed to limit the distortion of the original space, thus ensuring that information in the primary modality is preserved. (D) The new point locations represent information synthesized from multiple modalities into a coherent structure. To compute the transformation, Schema weights features in the primary modality by their importance to its objective; we have found this feature-selection aspect very useful in biological interpretation of its results.
