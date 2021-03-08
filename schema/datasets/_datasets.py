@@ -8,7 +8,7 @@
 ## Repository:  http://github.io/rs239/schema
 ###################################################################
 
-import sys, copy, os
+import sys, copy, os, warnings
 
 with warnings.catch_warnings():
     warnings.simplefilter("ignore")

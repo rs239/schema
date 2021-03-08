@@ -71,6 +71,7 @@ html_static_path = ['../_static']
 html_logo = '../_static/Schema-webpage-logo-2-blue.png'
 
 autoclass_content = 'both'
+autodoc_mock_imports = ["scanpy"]
 
 
 # def skip(app, what, name, obj, would_skip, options):
