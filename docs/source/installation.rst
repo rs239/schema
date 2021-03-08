@@ -9,6 +9,8 @@ PyPI, Virtualenv, or Anaconda
 
 You can use ``pip`` (or ``pip3``):
 
+.. code-block:: bash
+		
     pip install schema_learn
 
 
