@@ -59,8 +59,8 @@ figure above).
 Advantages
 ~~~~~~~~~~
 
-In generating such a shared-space representation, Schema is similar to
-classical approaches like CCA (canonical correlation analysis) and 
+In generating a shared-space representation, Schema is similar to
+statistical approaches like CCA (canonical correlation analysis) and 
 deep-learning methods like autoencoders (which map multiple
 representations into a shared space). Each of these approaches offers a
 different set of trade-offs. Schema, for instance, requires the output
@@ -81,9 +81,8 @@ allows it to offer the following advantages:
 
   * **Speed and flexibiility**: Schema is a based on a fast quadratic
     programming approach that allows for substantial flexibility in the
-    number of secondary modalities, their relative weights, and their
-    associated distance metrics.
-
+    number of secondary modalities and their relative weights. Also, arbitrary
+    distance metrics (i.e., kernels) are supported for the secondary modalities.
 
     
 Quick Start
@@ -105,7 +104,8 @@ Correlate gene expression with developmental stage. We demonstrate use with Annd
     gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the correlation
 
 
-
+Paper & Code
+~~~~~~~~~~~~
 
 Schema is described in the paper “Schema: metric learning enables
 interpretable synthesis of heterogeneous single-cell modalities" 

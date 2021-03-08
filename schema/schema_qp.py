@@ -205,7 +205,7 @@ class SchemaQP:
     
         
     
-    def fit(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, d0 = None, d0_dist_transform=None, secondary_data_dist_transform_list=None):
+    def fit(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, secondary_data_dist_kernels=None, d0 = None, d0_dist_transform=None):
         """Compute the optimal Schema transformation, first performing a
         change-of-basis transformation if required.
 
@@ -279,6 +279,18 @@ class SchemaQP:
             negative number (e.g., -1) here. This works even if you have
             just one secondary dataset
 
+        :type secondary_data_dist_kernels: list of functions, **optional**
+
+        :param secondary_data_dist_kernels: 
+            The transformations to apply on
+            secondary dataset's L2 distances before using them for correlations.
+
+            If specified, the length of the list should match that of
+            `secondary_data_val_list`. 
+            Each function should take a non-negative float and return a non-negative float. 
+
+            **Handle with care:** Most likely, you don't need this parameter.
+
         :type d0: A 1-d or 2-d numpy array, **optional** 
 
         :param d0: 
@@ -303,19 +315,6 @@ class SchemaQP:
 
             **Handle with care:** Most likely, you don't need this parameter.
 
-
-        :type secondary_data_dist_transform: list of functions, **optional**
-
-        :param secondary_data_dist_transform: 
-            The transformations to apply on
-            secondary dataset's L2 distances before using them for correlations.
-
-            If specified, the length of the list should match that of
-            `secondary_data_val_list`. 
-            Each function should take a non-negative float and return a non-negative float. 
-
-            **Handle with care:** Most likely, you don't need this parameter.
-
         :returns: None
          """
         
@@ -329,7 +328,7 @@ class SchemaQP:
             raise ValueError('secondary_data_wt_list should have the same length as secondary_data_val_list')
 
         for i in range(len(secondary_data_val_list)):
-            if not (secondary_data_type_list[i] in ['categorical','numeric','feature_vector']):
+            if not (secondary_data_type_list[i] in ['categorical','numeric','feature_vector', 'feature_vector_categorical']):
                 raise ValueError('{0}-th entry in secondary_data_type_list is invalid'.format(i+1))
              
             if not (secondary_data_val_list[i].shape[0] == d.shape[0]):
@@ -338,7 +337,7 @@ class SchemaQP:
             if not ((secondary_data_type_list[i]=='categorical' and secondary_data_val_list[i].ndim==1) or
                     (secondary_data_type_list[i]=='numeric' and secondary_data_val_list[i].ndim==1) or
                     (secondary_data_type_list[i]=='feature_vector' and secondary_data_val_list[i].ndim==2) or
-                    (secondary_data_type_list[i]=='feature_vector' and secondary_data_val_list[i].ndim==2)):
+                    (secondary_data_type_list[i]=='feature_vector_categorical' and secondary_data_val_list[i].ndim==2)):
                 raise ValueError('{0}-th entry in secondary_data_val_list does not match specified type'.format(i+1))
 
             
@@ -347,7 +346,7 @@ class SchemaQP:
             
 
         self._params["d0_dist_transform"] = d0_dist_transform
-        self._params["secondary_data_dist_transform_list"] = secondary_data_dist_transform_list
+        self._params["secondary_data_dist_transform_list"] = secondary_data_dist_kernels
         
         if self._mode=="scale":
             self._fit_scale(d, d0, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
@@ -386,14 +385,14 @@ class SchemaQP:
         
 
         
-    def fit_transform(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, d0 = None, d0_dist_transform=None, secondary_data_dist_transform_list=None):
+    def fit_transform(self, d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None, secondary_data_dist_kernels = None, d0 = None, d0_dist_transform=None):
         """
         Calls fit(..) with exactly the arguments given; then calls transform(d).
         See documentation for fit(....) and transform(...) respectively.
 
         """
 
-        self.fit(d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list, d0, d0_dist_transform, secondary_data_dist_transform_list)
+        self.fit(d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list, secondary_data_dist_kernels, d0, d0_dist_transform)
         return self.transform(d)
 
 
