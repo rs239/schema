@@ -20,6 +20,8 @@ matplotlib.use('agg')
 #sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)) + "/../../schema/"]
 #import schema_qp
 
+autodoc_mock_imports = ["scanpy"]
+
 sys.path[:0] = [os.path.dirname(os.path.abspath(__file__)) + "/../../"]
 import schema
 
@@ -44,7 +46,6 @@ extensions = [ 'sphinx.ext.todo', 'sphinx.ext.viewcode', 'sphinx.ext.autodoc']
 
 
 autoclass_content = 'both'
-autodoc_mock_imports = ["scanpy"]
 
 
 # Add any paths that contain templates here, relative to this directory.
