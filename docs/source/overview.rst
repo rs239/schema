@@ -62,22 +62,23 @@ Advantages
 In generating a shared-space representation, Schema is similar to
 statistical approaches like CCA (canonical correlation analysis) and 
 deep-learning methods like autoencoders (which map multiple
-representations into a shared space). Each of these approaches offers a
+representations into a shared latent space). Each of these approaches offers a
 different set of trade-offs. Schema, for instance, requires the output
 space to be a linear transformation of the primary modality. Doing so
 allows it to offer the following advantages:
 
-  * **Interpretability**: one can identify which features of the primary
+  * **Interpretability**: Schema identifies which features of the primary
     modality were important in maximizing its agreement with the secondary
-    modalities.
+    modalities. If the features corresponded to genes (or principal components),
+    this can directly be interpreted in terms of gene importances. 
 
   * **Regularization**: single-cell data can be sparse and noisy. As we
     show in our `paper`_, unconstrained approaches like CCA and
     autoencoders can "overfit" in these situations by identifying a shared
     space that picks up on artifacts rather than true biology. A key
     feature of Schema is its regularization: you specify a maximum limit
-    on the distortion of the primary modality. Thus, a noisy secondary
-    modality's contribution to the final result is constrained.
+    on the distortion of the primary modality, thus constraining a noisy secondary
+    modality's contribution to the final result.
 
   * **Speed and flexibility**: Schema is a based on a fast quadratic
     programming approach that allows for substantial flexibility in the
@@ -100,10 +101,10 @@ Install via pip
 
     import schema
     adata = schema.datasets.fly_brain()  # adata has scRNA-seq data & cell age
-    sqp = SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq 
+    sqp = SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq distances
 		    params= {'decompositon_model': 'nmf', 'num_top_components': 20} )
-    mod_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ])  # correlate the gene expression with the 'stage' parameter
-    gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the correlation
+    mod_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ])  # correlate the gene expression with the 'age' parameter
+    gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the alignment
 
 
 Paper & Code
