@@ -1,7 +1,7 @@
 Visualization
 =============
 
-Popular tools like t-SNE and UMAP can produce intuitive and appealing
+Popular tools like `t-SNE`_ and `UMAP`_ can produce intuitive and appealing
 visualizations. However, since they perform opaque non-linear transformations of
 the input data, it can be unclear how to "tweak" the visualization to
 accentuate a specific aspect of the input. Also, it can can sometimes
@@ -71,3 +71,5 @@ This produces a plot like the one shown below. Note how cell-age now stands out 
 
 .. _Davie et al.'s: https://doi.org/10.1016/j.cell.2018.05.057
 .. _paper: https://doi.org/10.1101/834549
+.. _t-SNE: https://lvdmaaten.github.io/tsne/
+.. _UMAP: https://umap-learn.readthedocs.io/en/latest/

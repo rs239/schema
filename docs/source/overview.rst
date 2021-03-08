@@ -46,7 +46,7 @@ coexpression. Across the three graphs in the figure (**B**), the dashed and
 dotted lines indicate distances between the same pairs of
 observations. 
 
-Schema's seeks to learn a new distance metric between points, informed
+Schema seeks to learn a new distance metric between points, informed
 jointly by all the modalities. In Schema, we start by designating one
 high-confidence modality as the *primary* (i.e., reference) and the
 remaining modalities as *secondary*-- we've found scRNA-seq to typically
@@ -54,8 +54,8 @@ be a good choice for the primary modality.  Schema transforms the
 primary-modality space by scaling each of its dimensions so that the
 distances in the transformed space have a higher (or lower, if desired!)
 correlation with corresponding distances in the secondary modalities
-(**C,D** in the figure above). The primary modality can pre-transformed by
-a PCA or NMF transformation so that the scaling occurs in this latter
+(**C,D** in the figure above). The primary modality can be pre-transformed by
+a `PCA`_ or `NMF`_ transformation so that the scaling occurs in this latter
 space; this can often be more powerful.
 
 Advantages
@@ -122,3 +122,5 @@ Source code available at: https://github.com/rs239/schema
 
 .. _metric learning: https://en.wikipedia.org/wiki/Similarity_learning#Metric_learning
 .. _paper: https://doi.org/10.1101/834549
+.. _PCA: https://en.wikipedia.org/wiki/Principal_component_analysis
+.. _NMF: https://en.wikipedia.org/wiki/Non-negative_matrix_factorization

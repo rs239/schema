@@ -15,7 +15,6 @@ Schema is a Python library for the synthesis and integration of heterogeneous si
 Here are some of the analyses that you can do with Schema:
 
   - infer cell types jointly across modalities.
-  - identify genes whose RNA-seq expression profile correlates with the cell state as measured by *another* modality.
   - perform spatial transcriptomic analyses to identify differntially-expressed genes in cells that display a specific spatial characteristic.
   - create informative t-SNE & UMAP visualizations of multimodal data by infusing information from other modalities into scRNA-seq data.
     
@@ -28,7 +27,6 @@ Read the documentation_.
 We encourage you to report issues at our `Github page`_ ; you can also create pull reports there to contribute your enhancements.
 If Schema is useful for your research, please consider citing `bioRxiv (2019)`_.
 
-
-.. _documentation: https://schema-multimodal.readthedocs.io 
+.. _documentation: https://schema-multimodal.readthedocs.io/en/latest/overview.html
 .. _bioRxiv (2019): https://www.biorxiv.org/content/10.1101/834549v1
 .. _Github page: https://github.com/rs239/schema
