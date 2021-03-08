@@ -76,4 +76,4 @@ html_logo = '../_static/Schema-webpage-logo-2-blue.png'
 autodoc_mock_imports = ["scanpy"]
 
 
-import schema
+#import schema
