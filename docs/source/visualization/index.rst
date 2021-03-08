@@ -42,13 +42,15 @@ First, let's get the data and do a regular UMAP plot.
     adata = schema.datasets.fly_brain()  # adata has scRNA-seq data & cell age
     sc_umap_pipeline(adata, 'regular')
 
-This should produce a plot like this, where cells are colored by age. Note
-how the age does not look to be a defining feature of the plot:
+This should produce a plot like this, where cells are colored by age. 
 
 .. image:: ../_static/umap_flybrain_regular_r3.png
    :width: 300
 
-Next, we apply Schema to infuse cell age into the scRNA-seq data, while preserving a high level of correlation with the original scRNA-seq distances. We start by requiring a minimum 99.9% correlation with original scRNA-seq distances
+Next, we apply Schema to infuse cell age into the scRNA-seq data, while
+preserving a high level of correlation with the original scRNA-seq
+distances. We start by requiring a minimum 99.9% correlation with original
+scRNA-seq distances
 
 .. code-block:: Python
 
@@ -69,10 +71,19 @@ We then loosen the `min_desired_corr` constraint a tiny bit, to 99%
     
     diffexp_gene_wts = sqp.feature_weights() # get a ranking of genes important to the alignment
     
-These runs should produce a pair of plots like the ones shown below. Note how cell-age progressively stands out as a characteristic feature. We also encourage you to try out other choices of `min_desired_corr` (e.g., 0.90 or 0.7); these will show the effect of allowing greater distortions of the primary modality. This example also illustrates Scehma's interpretability. The variable `diffexp_gene_wts` identifies the genes most important to aligning scRNA-seq with cell age. As we describe in our `paper`_, these genes turn out to be differentially expressed between young cells and old cells.
+These runs should produce a pair of plots like the ones shown below. Note
+how cell-age progressively stands out as a characteristic feature. We also
+encourage you to try out other choices of `min_desired_corr` (e.g., 0.90
+or 0.7); these will show the effect of allowing greater distortions of the
+primary modality.
 
 .. image:: ../_static/umap_flybrain_schema0.999-0.99_r3.png
     :width: 620
+
+This example also illustrates Scehma's interpretability. The variable
+`diffexp_gene_wts` identifies the genes most important to aligning
+scRNA-seq with cell age. As we describe in our `paper`_, these genes turn
+out to be differentially expressed between young cells and old cells.
 
 
 

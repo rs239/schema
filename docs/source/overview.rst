@@ -46,10 +46,10 @@ coexpression. Across the three graphs in the figure (**B**), the dashed and
 dotted lines indicate distances between the same pairs of
 observations. 
 
-Schema seeks to learn a new distance metric between points, informed
+Schema learns a new distance metric between points, informed
 jointly by all the modalities. In Schema, we start by designating one
 high-confidence modality as the *primary* (i.e., reference) and the
-remaining modalities as *secondary*-- we've found scRNA-seq to typically
+remaining modalities as *secondary*--- we've found scRNA-seq to typically
 be a good choice for the primary modality.  Schema transforms the
 primary-modality space by scaling each of its dimensions so that the
 distances in the transformed space have a higher (or lower, if desired!)
@@ -105,8 +105,8 @@ Install via pip
     import schema
     adata = schema.datasets.fly_brain()  # adata has scRNA-seq data & cell age
     
-    sqp = SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq distances
-		    params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
+    sqp = schema.SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq distances
+		           params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
 		    
     #correlate the gene expression with the 'age' parameter
     mod_X = sqp.fit_transform( adata.X, # primary modality

@@ -419,46 +419,92 @@ class SchemaQP:
 
 
 
-    def feature_weights(self):
+    def feature_weights(self, affine_map_style='softmax-avg'):
         """
         Return the feature weights computed by Schema
 
         If SchemaQP was initialized with `mode=scale`, the weights
         returned are directly the weights from the quadratic programming
         (QP), with a weight > 1 indicating the feature was up-weighted.
-
+        The `affine_map_style` argument is ignored.
 
         However, if `mode=affine` was used, the QP-computed weights
         correspond to columns of the PCA or NMF decomposition. In that
         case, this functions maps them back to the primary dataset's
-        features. This is done by a 'softmax'-type summation of loadings
-        across the PCA/NMF columns, with each column's weight proportional
-        to exp(QP wt). 
+        features. This is can be done in two different ways, as specified
+        by the `affine_map_style` parameter.
 
-        If you'd like to build your own mapping from
-        PCA/NMF weights to gene weights, look at the code for this
-        function. In particular, you'll need the QP weights (in `self._wts`) and the
-        PCA/NMF model (in `self._decomp_mdl`)
+        You can build your own mapping from PCA/NMF weights to primary-modality feature
+        weights. The instance's `_wts` member is the numpy array that contains
+        QP-computed weights, and `_decomp_mdl` is the
+        sklearn-computed NMF/PCA decomposition. You can also look at the source code
+        of this function to get a sense of how to use them.
+
+        :type affine_map_style: string, one of 'softmax-avg' or 'top-3-ranks', default='softmax-avg'
+
+        :param affine_map_style: 
+            Governs how QP-computed weights for PCA/NMF columns are mapped
+            back to primary-modality features (typically, genes from a scRNA-seq dataset).
+
+            Default is 'softmax-avg', which computes gene weights by a
+            softmax-type summation of loadings across the PCA/NMF columns,
+            with each column's weight proportional to exp(QP wt), and only
+            columns with QP weight > 1 being considered. 
+
+            The other choice is 'top-3-ranks', which considers only the
+            top-3 PCA/NMF columns by QP-computed weight and computes the
+            average rank of a gene across their loadings.
+ 
+            In both approaches, PCA loadings are first converted to
+            absolute value, since PCA columns are unique up to a sign.
+
 
         *returns* : a vector of floats, the same size as the primary dataset's dimensionality
 """
         if self._mode == "scale":
             return self._wts
-        else:
-            w = np.exp(self._wts)  # exponentiation of wts so the highest-wt features really stand out
-            w[ self._wts <= 1] = 0 # ignore features with wt <=1 (these were not up-weighted)
-            w = w/np.sum(w) # normalize
-
-            if self.params['decomposition_model'] == 'nmf':
-                feat_wts = sum([ w[i]*self._decomp_mdl.components_[i,:] for i in range(len(w))])
-                
-            else: #in PCA, loadings are unique upto a sign, so when adding them up, we just take the magnitudes 
-                feat_wts = sum([ w[i]*np.abs(self._decomp_mdl.components_[i,:]) for i in range(len(w))])
-
-            return feat_wts
-
         
+        else:
+            
+            if affine_map_style == 'softmax-avg':
+                w = np.exp(self._wts)  # exponentiation of wts so the highest-wt features really stand out
+                w[ self._wts <= 1] = 0 # ignore features with wt <=1 (these were not up-weighted)
+                w = w/np.sum(w) # normalize
 
+                if self._params['decomposition_model'] == 'nmf':
+                    df_comp = pd.DataFrame(self._decomp_mdl.components_)
+
+                else: #in PCA, loadings are unique upto a sign, so when adding them up, we just take the magnitudes
+                    df_comp = pd.DataFrame(self._decomp_mdl.components_).abs()
+
+                feat_wts = (df_comp* w[:,None]).sum(axis=0).values
+                return feat_wts
+            
+            elif affine_map_style == 'top-3-ranks':
+                w = self._wts.copy()
+                not_top3_idx = w.argsort()[:-3] 
+                w[not_top3_idx] = 0 # set all but the top-3 weights to zero
+                w = w/np.sum(w) # normalize
+            
+                if self._params['decomposition_model'] == 'nmf':
+                    df_comp = pd.DataFrame(self._decomp_mdl.components_).rank(axis=1, pct=True)
+
+                else: #in PCA, loadings are unique upto a sign, so when adding them up, we just take the magnitudes
+                    df_comp = pd.DataFrame(self._decomp_mdl.components_).abs().rank(axis=1, pct=True)
+
+                feat_wts = (df_comp* w[:,None]).sum(axis=0).values
+                return feat_wts
+
+            else:
+                raise ValueError(""" "style" needs to be one of 'softmax-avg' or 'top-3-ranks'""")                
+
+
+
+            
+
+
+
+            
     ###################################################################
     ######## "private" methods below. Not that Python cares... ########
     ###################################################################
