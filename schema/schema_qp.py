@@ -318,10 +318,13 @@ class SchemaQP:
          """
         
         if not (d.ndim==2): raise ValueError('d should be a 2-d array')
-        if not np.isfinite(d).all(): raise ValueError('d should not have any NaN or inf values')
+        if np.isnan(d).any() or np.isinf(d).any(): raise ValueError('d should not have any NaN or inf values')
         
         if not (len(secondary_data_val_list) >0): raise ValueError('secondary_data_val_list can not be empty')
-
+        for i, secd in enumerate(secondary_data_val_list):
+            if np.isnan(secd).any() or np.isinf(secd).any():
+                raise ValueError('{}-th entry in secondary_data_val_list has NaN or inf values'.format(i+1))
+            
         if not (len(secondary_data_val_list)==len(secondary_data_type_list)):
             raise ValueError('secondary_data_type_list should have the same length as secondary_data_val_list')
         
@@ -343,16 +346,22 @@ class SchemaQP:
 
             
         if not (d0 is None or d0.shape[0] == d.shape[0]): raise ValueError('d0 has incorrect rows')
-
+        if np.isnan(d0).any() or np.isinf(d0).any(): raise ValueError('d0 should not have any NaN or inf values')
             
 
         self._params["d0_dist_transform"] = d0_dist_transform
         self._params["secondary_data_dist_transform_list"] = secondary_data_dist_kernels
+
+        fconv_pd_to_np = lambda x: x.values if (isinstance(x, pd.DataFrame) or isinstance(x, pd.Series)) else x
+        
+        t_d = fconv_pd_to_np(d)
+        t_secondary_data_val_list = [ fconv_pd_to_np(v) for v in secondary_data_val_list]
+        t_d0 = fconv_pd_to_np(d0)
         
         if self._mode=="scale":
-            self._fit_scale(d, d0, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
+            self._fit_scale(t_d, t_d0, t_secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
         else: #affine
-            self._fit_affine(d, d0, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
+            self._fit_affine(t_d, t_d0, t_secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
 
 
 
@@ -416,7 +425,7 @@ class SchemaQP:
 
         If you'd like to build your own mapping from
         PCA/NMF weights to gene weights, look at the code for this
-        function. In particular, you'll need the QP weights (in `self._wts`( and the
+        function. In particular, you'll need the QP weights (in `self._wts`) and the
         PCA/NMF model (in `self._decomp_mdl`)
 
         *returns* : a vector of floats, the same size as the primary dataset's dimensionality
