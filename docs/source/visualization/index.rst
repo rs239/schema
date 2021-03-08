@@ -26,7 +26,7 @@ First, let's get the data and do a regular UMAP plot.
 
 .. code-block:: Python
 
-    from schema import SchemaQP
+    import schema
     import scanpy as sc
     import anndata
     
@@ -52,8 +52,8 @@ Next, we apply Schema to infuse cell age into the scRNA-seq data, while preservi
 
 .. code-block:: Python
 
-    sqp = SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq distances
-		    params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
+    sqp = schema.SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq distances
+		           params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
 		    
     mod_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ])  # correlate the gene expression with the 'age' parameter
     mod_adata = anndata.AnnData(mod_X)

@@ -215,7 +215,7 @@ class SchemaQP:
         maximized while the correlation between the original `d` and the transformed `d_new`
         remains above min_desired_corr.
 
-        The first two arguments are required, the next two are useful, and
+        The first three arguments are required, the next is useful, and
         the rest should be rarely used.
 
         :type d: Numpy 2-d `array` or Pandas `dataframe`
@@ -241,12 +241,11 @@ class SchemaQP:
         :param secondary_data_type_list: 
             The datatypes of the secondary modalities.
 
-            Each element of the list can be one of `auto, numeric,
-            feature_vector, categorical, feature_vector_categorical`
-            (default=`auto`).  The list's length should match the length
+            Each element of the list can be one of `numeric,
+            feature_vector, categorical, feature_vector_categorical`.  
+            The list's length should match the length
             of secondary_data_val_list
 
-            * `auto`: make the best guess out of the 4 possibilities below
 
             * `numeric`: one floating-pt value for each observation.  The
               default distance measure is Euclidean: (point1-point2)^2
@@ -319,6 +318,8 @@ class SchemaQP:
          """
         
         if not (d.ndim==2): raise ValueError('d should be a 2-d array')
+        if not np.isfinite(d).all(): raise ValueError('d should not have any NaN or inf values')
+        
         if not (len(secondary_data_val_list) >0): raise ValueError('secondary_data_val_list can not be empty')
 
         if not (len(secondary_data_val_list)==len(secondary_data_type_list)):
@@ -395,6 +396,47 @@ class SchemaQP:
         self.fit(d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list, secondary_data_dist_kernels, d0, d0_dist_transform)
         return self.transform(d)
 
+
+
+    def feature_weights(self):
+        """
+        Return the feature weights computed by Schema
+
+        If SchemaQP was initialized with `mode=scale`, the weights
+        returned are directly the weights from the quadratic programming
+        (QP), with a weight > 1 indicating the feature was up-weighted.
+
+
+        However, if `mode=affine` was used, the QP-computed weights
+        correspond to columns of the PCA or NMF decomposition. In that
+        case, this functions maps them back to the primary dataset's
+        features. This is done by a 'softmax'-type summation of loadings
+        across the PCA/NMF columns, with each column's weight proportional
+        to exp(QP wt). 
+
+        If you'd like to build your own mapping from
+        PCA/NMF weights to gene weights, look at the code for this
+        function. In particular, you'll need the QP weights (in `self._wts`( and the
+        PCA/NMF model (in `self._decomp_mdl`)
+
+        *returns* : a vector of floats, the same size as the primary dataset's dimensionality
+"""
+        if self._mode == "scale":
+            return self._wts
+        else:
+            w = np.exp(self._wts)  # exponentiation of wts so the highest-wt features really stand out
+            w[ self._wts <= 1] = 0 # ignore features with wt <=1 (these were not up-weighted)
+            w = w/np.sum(w) # normalize
+
+            if self.params['decomposition_model'] == 'nmf':
+                feat_wts = sum([ w[i]*self._decomp_mdl.components_[i,:] for i in range(len(w))])
+                
+            else: #in PCA, loadings are unique upto a sign, so when adding them up, we just take the magnitudes 
+                feat_wts = sum([ w[i]*np.abs(self._decomp_mdl.components_[i,:]) for i in range(len(w))])
+
+            return feat_wts
+
+        
 
     ###################################################################
     ######## "private" methods below. Not that Python cares... ########
@@ -769,7 +811,9 @@ class SchemaQP:
         print('Running quadratic program...', end='', flush=True)
         s, sl = self._fit_helper(dx, d0, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
         
-        self._wts = np.maximum(s,0)
+        self._wts = np.maximum(s,0) # shouldn't be <0 anyways, except for numerical issues
+        self._wts = len(self._wts)*self._wts/np.sum(self._wts) #let's normalize so that avg wt = 1
+        
         self._soln_info = dict(sl)
         print(' done.\n', end='', flush=True)
                 
@@ -821,7 +865,9 @@ class SchemaQP:
         print('Running quadratic program...', end='', flush=True)
         s, sl = self._fit_helper(dx, d0, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
 
-        self._wts = np.maximum(s,0)
+        self._wts = np.maximum(s,0) # shouldn't be <0 anyways, except for numerical issues
+        self._wts = len(self._wts)*self._wts/np.sum(self._wts) #let's normalize so that avg wt = 1
+
         self._soln_info = dict(sl)
         print(' done.\n', end='', flush=True)
 

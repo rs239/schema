@@ -75,7 +75,7 @@ allows it to offer the following advantages:
     this can directly be interpreted in terms of gene importances. 
 
   * **Regularization**: single-cell data can be sparse and noisy. As we
-    show in our `paper`_, unconstrained approaches like CCA and
+    discuss in our `paper`_, unconstrained approaches like CCA and
     autoencoders seek to maximize the alignment between modalities without
     any other considerations. In doing so, they can pick up on artifacts
     rather than true biology. A key feature of Schema is its
