@@ -30,10 +30,8 @@ ID etc.). With this data, Schema can help perform analyses like:
   * **Improved visualizations**: tune t-SNE or UMAP plots to more clearly
     arrange cells along a desired manifold. 
 
-  * Simultaneously account for batch information while also integrating
-    other modalities. For example, Schema can help identify gene whose
-    expression varies across developmental stages *and* is robust across
-    replicates.
+  * Simultaneously account for batch effects while also integrating
+    other modalities.
 
 Intuition
 ~~~~~~~~~
@@ -62,7 +60,7 @@ Advantages
 ~~~~~~~~~~
 
 In generating such a shared-space representation, Schema is similar to
-classical approaches like CCA (canonical correlation analysis) as well as
+classical approaches like CCA (canonical correlation analysis) and 
 deep-learning methods like autoencoders (which map multiple
 representations into a shared space). Each of these approaches offers a
 different set of trade-offs. Schema, for instance, requires the output
@@ -91,41 +89,21 @@ allows it to offer the following advantages:
 Quick Start
 ~~~~~~~~~~~
 
+Install via pip
+.. code-block:: bash
+
+    pip install schema_learn
+
+Correlate gene expression with developmental stage. We demonstrate use with Anndata objects here.
 .. code-block:: Python
 
-    from schema import SchemaQP
-
-
-:Example: Correlate gene expression with developmental stage. We demonstrate use with Anndata objects here.
-.. code-block:: Python
-
-    sqp = SchemaQP() # initialize with default params (min_corr = 0.99)
-    mod_X = sqp.fit_transform( adata.X, [ adata.obs['stage'] ]) # correlate the gene expression with the 'stage' parameter
+    import schema
+    adata = schema.datasets.fly_brain()  # adata has scRNA-seq data & cell age
+    sqp = SchemaQP( min_desired_corr=0.99, # require 99% agreement with original scRNA-seq 
+		    params= {'decompositon_model': 'nmf', 'num_top_components': 20} )
+    mod_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ])  # correlate the gene expression with the 'stage' parameter
     gene_wts = sqp.feature_weights() # get a ranking of gene wts important to the correlation
 
-
-:Example: Correlate gene expression with three secondary modalities.
-.. code-block:: Python
-
-    sqp = SchemaQP(min_corr = 0.9) # lower than the default, allowing greater distortion of the primary modality 
-    sqp.fit( adata.X,    
-                 [ adata.obs['col1'], adata.obs['col2'], adata.obsm['Matrix1'] ], 
-                 [ "categorical", "numeric", "feature_vector"]) # data types of the three modalities
-    mod_X = sqp.transform( adata.X) # transform
-    gene_wts = sqp.feature_weights() # get gene importances
-
-
-:Example: Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information::
-.. code-block:: Python
-
-    atac_30d = sklearn.decomposition.TruncatedSVD(50).fit_transform( atac_cnts_sp_matrix)
-    sqp = SchemaQP(min_corr=0.9)
-    # df is a pd.DataFrame, srs is a pd.Series, -1 means try to disagree
-    mod_X = sqp.fit_transform( df_gene_exp, # gene expression dataframe
-                               [ atac_30d, batch_id],  # batch_info can be a Pandas Series or numpy array
-                               [ 'feature_vector', 'categorical'], 
-                               [ 1, -1]) # maximize combination of (agreement with ATAC-seq + disagreement with batch_id)
-    gene_wts = sqp.feature_weights() # get gene importances
 
 
 
@@ -137,3 +115,4 @@ Source code available at: https://github.com/rs239/schema
 
 
 .. _metric learning: https://en.wikipedia.org/wiki/Similarity_learning#Metric_learning
+.. _paper: https://doi.org/10.1101/834549
