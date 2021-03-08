@@ -56,7 +56,7 @@ Next, we apply Schema to infuse cell age into the scRNA-seq data, while preservi
 		           params= {'decomposition_model': 'nmf', 'num_top_components': 20} )
 		    
     mod999_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ], ['numeric'])  # correlate gene expression with the age
-    sc_umap_pipeline( anndata.AnnData( mod999_X, obs=adata.obs['age']) )
+    sc_umap_pipeline( anndata.AnnData( mod999_X, obs=adata.obs) )
 
 We then loosen the `min_desired_corr` constraint a tiny bit, to 99%
 
@@ -65,7 +65,7 @@ We then loosen the `min_desired_corr` constraint a tiny bit, to 99%
     sqp.reset_mincorr_param(0.99) # we can re-use the NMF transform (which takes more time than the quadratic program)
     
     mod990_X = sqp.fit_transform( adata.X, [ adata.obs['age'] ], ['numeric']) 
-    sc_umap_pipeline( anndata.AnnData( mod990_X, obs=adata.obs['age']) )
+    sc_umap_pipeline( anndata.AnnData( mod990_X, obs=adata.obs) )
     
     diffexp_gene_wts = sqp.feature_weights() # get a ranking of genes important to the alignment
     

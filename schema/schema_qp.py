@@ -10,6 +10,7 @@
 
 import pandas as pd
 import numpy as np
+import numba
 import scipy, sklearn
 import os, sys, string, fileinput, glob, re, math, itertools, functools, copy, logging
 import sklearn.decomposition, sklearn.preprocessing, sklearn.linear_model, sklearn.covariance
@@ -23,6 +24,7 @@ from schema_base_config import *
 
 sys.path = copy.copy(oldpath)
 ####
+
 
 
 class SchemaQP:
@@ -318,12 +320,8 @@ class SchemaQP:
          """
         
         if not (d.ndim==2): raise ValueError('d should be a 2-d array')
-        if np.isnan(d).any() or np.isinf(d).any(): raise ValueError('d should not have any NaN or inf values')
         
         if not (len(secondary_data_val_list) >0): raise ValueError('secondary_data_val_list can not be empty')
-        for i, secd in enumerate(secondary_data_val_list):
-            if np.isnan(secd).any() or np.isinf(secd).any():
-                raise ValueError('{}-th entry in secondary_data_val_list has NaN or inf values'.format(i+1))
             
         if not (len(secondary_data_val_list)==len(secondary_data_type_list)):
             raise ValueError('secondary_data_type_list should have the same length as secondary_data_val_list')
@@ -346,17 +344,31 @@ class SchemaQP:
 
             
         if not (d0 is None or d0.shape[0] == d.shape[0]): raise ValueError('d0 has incorrect rows')
-        if np.isnan(d0).any() or np.isinf(d0).any(): raise ValueError('d0 should not have any NaN or inf values')
-            
 
         self._params["d0_dist_transform"] = d0_dist_transform
         self._params["secondary_data_dist_transform_list"] = secondary_data_dist_kernels
 
-        fconv_pd_to_np = lambda x: x.values if (isinstance(x, pd.DataFrame) or isinstance(x, pd.Series)) else x
+
+        ## Before calling the worker functions, convert to np arrays and check for NaNs
+        def fconv_to_np(x):
+            if isinstance(x, pd.DataFrame) or isinstance(x, pd.Series): return x.values
+            if isinstance(x, list): return np.array(x)
+            return x
+
+        def any_nans(npobj):
+            if npobj.dtype.kind != 'f': return False
+            v = np.sum(npobj)
+            return np.isnan(v) or np.isinf(v)
         
-        t_d = fconv_pd_to_np(d)
-        t_secondary_data_val_list = [ fconv_pd_to_np(v) for v in secondary_data_val_list]
-        t_d0 = fconv_pd_to_np(d0)
+        t_d = fconv_to_np(d)
+        t_secondary_data_val_list = [ fconv_to_np(v) for v in secondary_data_val_list]
+        t_d0 = fconv_to_np(d0)
+
+        if any_nans(t_d): raise ValueError('d should not have any NaN or inf values')
+        if t_d0 is not None and any_nans(t_d0): raise ValueError('d0 should not have any NaN or inf values')
+        for i, secd in enumerate(t_secondary_data_val_list):
+            if any_nans(secd): raise ValueError('{}-th entry in secondary_data_val_list has NaN or inf values'.format(i+1))
+                
         
         if self._mode=="scale":
             self._fit_scale(t_d, t_d0, t_secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
@@ -844,11 +856,16 @@ class SchemaQP:
                     self._decomp_mdl = sklearn.decomposition.TruncatedSVD(n_components=ncomp)
                     schema_warning("Using TruncatedSVD instead of PCA because input is a sparse matrix. do_whiten arguments will be ignored")
                     
-                self._decomp_mdl.fit(dx1)
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    self._decomp_mdl.fit(dx1)
 
             elif model_type=="nmf":
                 self._decomp_mdl = sklearn.decomposition.NMF(n_components=ncomp, init=None)
-                W = self._decomp_mdl.fit(dx1)
+                
+                with warnings.catch_warnings():
+                    warnings.simplefilter("ignore")
+                    W = self._decomp_mdl.fit(dx1)
                 
             self._orig_decomp_mdl = copy.deepcopy(self._decomp_mdl)
             print(' done.')

@@ -10,13 +10,9 @@
 
 import sys, copy, os, warnings
 
-try:
-    with warnings.catch_warnings():
-        warnings.simplefilter("ignore")
-        import scanpy
-except:
-    print(dir())
-    raise
+with warnings.catch_warnings():
+    warnings.simplefilter("ignore")
+    import scanpy
 
 
 # #### local directory imports ####
