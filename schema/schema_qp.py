@@ -483,7 +483,7 @@ class SchemaQP:
             elif affine_map_style == 'top-3-ranks':
                 w = self._wts.copy()
                 not_top3_idx = w.argsort()[:-3] 
-                w[not_top3_idx] = 0 # set all but the top-3 weights to zero
+                w[not_top3_idx] = 0 # set all but the top-3 PCA/NMF column weights to zero
                 w = w/np.sum(w) # normalize
             
                 if self._params['decomposition_model'] == 'nmf':
