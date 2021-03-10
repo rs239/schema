@@ -1,23 +1,8 @@
-Recipes
+Example Usage
 =======
 
 
-*Note*: the examples in this section currently are skeleton examples without real data. We will soon be updating these. 
-    expression varies across developmental stages *and* is robust across
-    replicates.
-
-
- 
-**Example** Correlate gene expression with three secondary modalities.
-
-.. code-block:: Python
-
-    sqp = SchemaQP(min_corr = 0.9) # lower than the default, allowing greater distortion of the primary modality 
-    sqp.fit( adata.X,    
-             [ adata.obs['col1'], adata.obs['col2'], adata.obsm['Matrix1'] ], 
-             [ "categorical", "numeric", "feature_vector"]) # data types of the three modalities
-    mod_X = sqp.transform( adata.X) # transform
-    gene_wts = sqp.feature_weights() # get gene importances
+*Note*: The code snippets below show how Schema could be used for hypothetical datasets. In `Visualization`_, we describe a worked example where we also provide the dataset to try things on. We are working to add more datasets.
 
 
 **Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information::
@@ -33,3 +18,19 @@ Recipes
                                [ 1, -1]) # maximize combination of (agreement with ATAC-seq + disagreement with batch_id)
     gene_wts = sqp.feature_weights() # get gene importances
 
+
+ 
+**Example** Correlate gene expression with three secondary modalities.
+
+.. code-block:: Python
+
+    sqp = SchemaQP(min_corr = 0.9) # lower than the default, allowing greater distortion of the primary modality 
+    sqp.fit( adata.X,    
+             [ adata.obs['col1'], adata.obs['col2'], adata.obsm['Matrix1'] ], 
+             [ "categorical", "numeric", "feature_vector"]) # data types of the three modalities
+    mod_X = sqp.transform( adata.X) # transform
+    gene_wts = sqp.feature_weights() # get gene importances
+
+
+
+.. _Visualization: https://schema-multimodal.readthedocs.io/en/latest/visualization/index.html#ageing-fly-brain

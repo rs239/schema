@@ -12,14 +12,6 @@ This is sourced from `Davie et al.`_ (*Cell* 2018, `GSE 107451`_) and contains s
    adata = schema.datasets.fly_brain()
 
 
-Next Datasets
-~~~~~~~~~~~~~
-
-.. code-block:: Python
-
-    from schema import SchemaQP
-
-Coming soon: example datasets from Sci-CAR,  10x ATAC+scRNA, SlideSeq etc. 
 
 
 
