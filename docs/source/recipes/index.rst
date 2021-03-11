@@ -5,17 +5,20 @@ Example Usage
 *Note*: The code snippets below show how Schema could be used for hypothetical datasets. In `Visualization`_, we describe a worked example where we also provide the dataset to try things on. We are working to add more datasets.
 
 
-**Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information::
+**Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information.
   
 .. code-block:: Python
 
-    atac_30d = sklearn.decomposition.TruncatedSVD(50).fit_transform( atac_cnts_sp_matrix)
+    atac_50d = sklearn.decomposition.TruncatedSVD(50).fit_transform( atac_cnts_sp_matrix)
+    
     sqp = SchemaQP(min_corr=0.9)
+    
     # df is a pd.DataFrame, srs is a pd.Series, -1 means try to disagree
-    mod_X = sqp.fit_transform( df_gene_exp, # gene expression dataframe
-                               [ atac_30d, batch_id],  # batch_info can be a Pandas Series or numpy array
+    mod_X = sqp.fit_transform( df_gene_exp, # gene expression dataframe: rows=cells, cols=genes
+                               [ atac_50d, batch_id],  # batch_info can be a pd.Series or np.array. rows=cells
                                [ 'feature_vector', 'categorical'], 
                                [ 1, -1]) # maximize combination of (agreement with ATAC-seq + disagreement with batch_id)
+			       
     gene_wts = sqp.feature_weights() # get gene importances
 
 
