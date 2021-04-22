@@ -1,10 +1,10 @@
-Example Usage
+Data Integration Examples
 =======
 
-Dummy Examples
+API-usage Examples
 ~~~~~~~~~~~~~~
 
-*Note*: The code snippets below show how Schema could be used for hypothetical datasets. In the next section (`Paired RNA-seq and ATAC-seq`_) and in `Visualization`_, we describe worked examples where we also provide the dataset to try things on. We are working to add more datasets.
+*Note*: The code snippets below show how Schema could be used for hypothetical datasets and illustrates how the API can be used. In the next section (`Paired RNA-seq and ATAC-seq`_) and in `Visualization`_, we describe worked examples where we also provide the dataset to try things on. We are working to add more datasets.
 
 
 **Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information.

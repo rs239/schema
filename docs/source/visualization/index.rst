@@ -1,4 +1,4 @@
-Visualization
+Visualization Examples
 =============
 
 Popular tools like `t-SNE`_ and `UMAP`_ can produce intuitive and appealing

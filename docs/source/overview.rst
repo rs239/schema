@@ -13,7 +13,7 @@ contexts too.
  
 Schema is designed for single-cell assays where multiple modalities have
 been *simultaneously* measured for each cell. For example, this could be
-simultaneously-asayed scRNA-seq and scATAC-seq data, or a
+simultaneously-asayed ("paired") scRNA-seq and scATAC-seq data, or a
 spatial-transcriptomics dataset (e.g. 10x Visium, Slideseq or
 STARmap). Schema can also be used with just a scRNA-seq dataset where some
 per-cell metadata is available (e.g., cell age, donor information, batch
@@ -54,9 +54,12 @@ be a good choice for the primary modality.  Schema transforms the
 primary-modality space by scaling each of its dimensions so that the
 distances in the transformed space have a higher (or lower, if desired!)
 correlation with corresponding distances in the secondary modalities
-(**C,D** in the figure above). The primary modality can be pre-transformed by
+(**C,D** in the figure above). You can choose any distance metric for the
+secondary modalities, though the primary modality's metric needs to be Euclidean.
+The primary modality can be pre-transformed by
 a `PCA`_ or `NMF`_ transformation so that the scaling occurs in this latter
-space; this can often be more powerful.
+space; this can often be more powerful because the major directions of variance are
+now axis-aligned and hence can be scaled independently.
 
 Advantages
 ~~~~~~~~~~
