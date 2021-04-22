@@ -71,7 +71,7 @@ To use the ATAC-seq data, we reduce its dimensionality to 50. Instead of PCA, we
     H2 = svd2.fit_transform(adata.uns["atac.X"])
 
 
-Next, we run Schema. We choose RNA-seq as the primary modality because 1) it has lower noise than ATAC-seq, and 2) we want to investigate which of its features (i.e., genes) are important during the integration. We will first perform a NMF transformation on the RNA-seq data. For the secondary modality, we'll use the dimensionality-reduced ATAC-seq. We require a positive correlation  between the two (`secondary_data_wt_list = [1]` below). *Importantly, we force Schema to generate a low-distortation transformation*: the correlation of distances between original RNA-seq space and the transformed space, `min_desired_corr` is required to be >99%. This low-distortion capability of Schema is crucial here, as we'll demonstrate.
+Next, we run Schema. We choose RNA-seq as the primary modality because 1) it has lower noise than ATAC-seq, and 2) we want to investigate which of its features (i.e., genes) are important during the integration. We will first perform a NMF transformation on the RNA-seq data. For the secondary modality, we'll use the dimensionality-reduced ATAC-seq. We require a positive correlation  between the two (`secondary_data_wt_list = [1]` below). **Importantly, we force Schema to generate a low-distortation transformation** : the correlation of distances between original RNA-seq space and the transformed space, `min_desired_corr` is required to be >99%. This low-distortion capability of Schema is crucial here, as we'll demonstrate.
 
 In the `params` settings below, the number of randomly sampled point-pairs has been bumped up to 5M (from default=2M). It helps with the accuracy and doesn't cost too much computationally. We also turned off `do_whiten` (default=1, i.e., true). When `do_whiten=1`, Schema first rescales the PCA/NMF transformation so that each axis has unit variance; typically, doing so is "nice" from a theoretical/statistical perspective. But it can interfere with downstream analyses (e.g., Leiden clustering here).
 
@@ -103,16 +103,18 @@ Schema offers a helper function to convert these NMF (or PCA) feature weights to
     v99 = sqp99.feature_weights("top-k-loading", 3)
 
 
-Let's do a dotplot to see how the expression of these genes varies by cell name. We plot the top 10 genes by importance here. As you'll notice, they seem to be differentially expressed in PT cells and Ki-67+ cells. Essentially, these are cell types where ATAC-seq data was most informative. As we'll see shortly, it is in these cells where Schema is able to offer the biggest improvement.
-
-.. image:: ../_static/schema_atacrna_demo_dotplot1.png
-   :width: 500
-
+Let's do a dotplot to visualize how the expression of these genes varies by cell name. We plot the top 10 genes by importance here.
 
 .. code-block:: Python
 
     dfv99 = pd.DataFrame({"gene": adata.var_names, "v":v99}).sort_values("v", ascending=False).reset_index(drop=True)
     sc.pl.dotplot(adata, dfv99.gene.head(10).tolist(),'cell_name_short', figsize=(8,6))
+
+As you'll notice, theese gene seem to be differentially expressed in PT cells, PBA and Ki-67+ cells. Essentially, these are cell types where ATAC-seq data was most informative. As we'll see shortly, it is preciely in these cells where Schema is able to offer the biggest improvement.
+
+.. image:: ../_static/schema_atacrna_demo_dotplot1.png
+   :width: 500
+
 
 For a comparison later, let's also do a Schema run without a strong distortion control. Below, we set the `min_desired_corr` parameter to 0.10 (i.e., 10%). Thus, the ATAC-seq data will get to influence the transformation a lot more.
 
@@ -166,11 +168,11 @@ Finally, let's do Leiden clustering of the RNA-seq, ATAC-seq, and the two Schema
 
    
 
-Below, we show the figures in a 3x2 panel of t-SNE plots. The first row has the cells colored by ground-truth cell types; the second panel is basically the same but lists the cell types explicitly. The next row shows cells colored by RNA- or ATAC-only clustering. Notice how noisy the ATAC-only clustering is! This is not a bug-- less than 0.3% of ATAC count matrix entries are non-zero and the sparsity of the ATAC data makes it difficult to estimate high-quality cell type estimtes.
+Below, we show the figures in a 3x2 panel of t-SNE plots. In the first row, the left panel shows the cells colored by ground-truth cell types; the right panel is basically the same but lists the cell types explicitly. The next row shows cells colored by RNA- or ATAC-only clustering. Notice how noisy the ATAC-only clustering is! This is not a bug in our analysis-- less than 0.3% of ATAC count matrix entries are non-zero and the sparsity of the ATAC data makes it difficult to estimate high-quality cell type estimtes.
 
-The third row has cells colored by Schema-based clustering at 99% and 10%  `min_desired_corr` thresholds. With Schema at a low-distortion (i.e., `min_desired_corr = 99%`) setting, notice that PT cells and Ki-67+ cells, circled in red, are getting more correctly classified now. This improvement of the Schema-implied clustering over the RNA-seq only clustering can be quantified by measuring the overlap with ground truth cell grouping, as we do in the paper.
+The third row shows cells colored by Schema-based clustering at 99% (left) and 10% (right)  `min_desired_corr` thresholds. With Schema at a low-distortion (i.e., `min_desired_corr = 99%`) setting, notice that PT cells and Ki-67+ cells, circled in red, are getting more correctly classified now. This improvement of the Schema-implied clustering over the RNA-seq-only clustering can be quantified by measuring the overlap with ground truth cell grouping, as we do in the paper.
 
-**This is a key strength of Schema** -- even with a modality that is sparse and noisy (like ATAC-seq here), it can nonetheless extract something of value from the noisy modality (here, ATAC-seq) because the constraint on distortion acts as a regularization. This is also why we recommend that your highest-confidence modality be set as the primary. Lastly as demonstration, if we relax the distortion constraint by setting `min_desired_corr = 10%`, you'll notice that the noise of ATAC-seq data does swamp out the RNA-seq signal. With an unconstrained approach (e.g., CCA or some deep learning approaches), this ends being a major challenge.
+**This is a key strength of Schema** -- even with a modality that is sparse and noisy (like ATAC-seq here), it can nonetheless extract something of value from the noisy modality because the constraint on distortion of the primary modality acts as a regularization. This is also why we recommend that your highest-confidence modality be set as the primary. Lastly as demonstration, if we relax the distortion constraint by setting `min_desired_corr = 10%`, you'll notice that the noise of ATAC-seq data does swamp out the RNA-seq signal. With an unconstrained approach (e.g., CCA or some deep learning approaches), this ends being a major challenge.
 
  .. image:: ../_static/schema_atacrna_demo_tsne1.png
    :width: 600

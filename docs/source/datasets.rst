@@ -1,7 +1,7 @@
 Datasets
 =========
 
-Ageing Drosophila Brain
+Ageing *Drosophila* brain
 ~~~~~~~~~~~~~~~~~~~~~~
 
 This is sourced from `Davie et al.`_ (*Cell* 2018, `GSE 107451`_) and contains scRNA-seq data from a collection of fly brain cells along with each cell's age (in days). It is a useful dataset for exploring a common scenario in multi-modal integration: scRNA-seq data aligned to a 1-dimensional secondary modality. Please see the `example in Visualization` where this dataset is used. 
@@ -31,4 +31,4 @@ This is sourced from `Cao et al.`_ (*Science* 2018, `GSE 117089`_) and contains 
 .. _example in Visualization: https://schema-multimodal.readthedocs.io/en/latest/visualization/index.html#ageing-fly-brain
 .. _Cao et al.: https://doi.org/10.1126/science.aau0730
 .. _GSE 117089: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE117089
-.. _example in Paired ATAC-RNA seq: https://schema-multimodal.readthedocs.io/en/latest/recipes/index.html#paired-atac-rna
+.. _example in Paired ATAC-RNA seq: https://schema-multimodal.readthedocs.io/en/latest/recipes/index.html#paired-rna-seq-and-atac-seq
