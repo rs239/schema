@@ -418,7 +418,7 @@ class SchemaQP:
 
 
 
-    def feature_weights(self, affine_map_style='softmax-avg'):
+    def feature_weights(self, affine_map_style='top-k-loading', k=1):
         """
         Return the feature weights computed by Schema
 
@@ -430,7 +430,7 @@ class SchemaQP:
         However, if `mode=affine` was used, the QP-computed weights
         correspond to columns of the PCA or NMF decomposition. In that
         case, this functions maps them back to the primary dataset's
-        features. This is can be done in two different ways, as specified
+        features. This can be done in three different ways, as specified
         by the `affine_map_style` parameter.
 
         You can build your own mapping from PCA/NMF weights to primary-modality feature
@@ -439,23 +439,32 @@ class SchemaQP:
         sklearn-computed NMF/PCA decomposition. You can also look at the source code
         of this function to get a sense of how to use them.
 
-        :type affine_map_style: string, one of 'softmax-avg' or 'top-3-ranks', default='softmax-avg'
+        :type affine_map_style: string, one of 'softmax-avg' or 'top-k-rank' or 'top-k-loading', default='top-k-loading'
 
         :param affine_map_style: 
             Governs how QP-computed weights for PCA/NMF columns are mapped
             back to primary-modality features (typically, genes from a scRNA-seq dataset).
 
-            Default is 'softmax-avg', which computes gene weights by a
+            Default is 'top-k-loading', which considers only the
+            top-k PCA/NMF columns by QP-computed weight and computes the
+            average loading of a gene across these. The second argument specifies k (default=1)
+
+            Another choice is 'softmax-avg', which computes gene weights by a
             softmax-type summation of loadings across the PCA/NMF columns,
             with each column's weight proportional to exp(QP wt), and only
-            columns with QP weight > 1 being considered. 
+            columns with QP weight > 1 being considered. *k is ignored here*. 
 
-            The other choice is 'top-3-ranks', which considers only the
-            top-3 PCA/NMF columns by QP-computed weight and computes the
-            average rank of a gene across their loadings.
+            Yet another choice is 'top-k-rank', which considers only the
+            top-k PCA/NMF columns by QP-computed weight and computes the
+            average rank of a gene across their loadings. The second argument specifies k (default=1)
  
-            In both approaches, PCA loadings are first converted to
+            In all approaches, PCA loadings are first converted to
             absolute value, since PCA columns are unique up to a sign.
+
+        :type k: int, >= 0
+
+        :param k: 
+            The number of PCA/NMF columns to average over, when affine_map_style =  top-k-loading or top-k-rank. 
 
 
         *returns* : a vector of floats, the same size as the primary dataset's dimensionality
@@ -478,11 +487,17 @@ class SchemaQP:
 
                 feat_wts = (df_comp* w[:,None]).sum(axis=0).values
                 return feat_wts
+
             
-            elif affine_map_style == 'top-3-ranks':
+            elif affine_map_style == "top-k-rank":
+                try:
+                    assert k>0 and k < len(self._wts)
+                except:
+                    raise ValueError("""Incorrect "k" argument for 'top-k-rank'""")
+                
                 w = self._wts.copy()
-                not_top3_idx = w.argsort()[:-3] 
-                w[not_top3_idx] = 0 # set all but the top-3 PCA/NMF column weights to zero
+                not_topk_idx = w.argsort()[:-k] 
+                w[not_topk_idx] = 0 # set all but the top-k PCA/NMF column weights to zero
                 w = w/np.sum(w) # normalize
             
                 if self._params['decomposition_model'] == 'nmf':
@@ -494,8 +509,29 @@ class SchemaQP:
                 feat_wts = (df_comp* w[:,None]).sum(axis=0).values
                 return feat_wts
 
+            
+            elif affine_map_style == "top-k-loading":
+                try:
+                    assert k>0 and k < len(self._wts)
+                except:
+                    raise ValueError("""Incorrect "k" argument for 'top-k-loading'""")
+                
+                w = self._wts.copy()
+                not_topk_idx = w.argsort()[:-k] 
+                w[not_topk_idx] = 0 # set all but the top-k PCA/NMF column weights to zero
+                w = w/np.sum(w) # normalize
+            
+                if self._params['decomposition_model'] == 'nmf':
+                    df_comp = pd.DataFrame(self._decomp_mdl.components_)
+
+                else: #in PCA, loadings are unique upto a sign, so when adding them up, we just take the magnitudes
+                    df_comp = pd.DataFrame(self._decomp_mdl.components_).abs()
+
+                feat_wts = (df_comp* w[:,None]).sum(axis=0).values
+                return feat_wts
+
             else:
-                raise ValueError(""" "style" needs to be one of 'softmax-avg' or 'top-3-ranks'""")                
+                raise ValueError(""" "style" needs to be one of 'top-k-loading' or 'softmax-avg' or 'top-k-rank'""")                
 
 
 
@@ -906,11 +942,11 @@ class SchemaQP:
                     self._decomp_mdl.fit(dx1)
 
             elif model_type=="nmf":
-                self._decomp_mdl = sklearn.decomposition.NMF(n_components=ncomp, init=None)
+                self._decomp_mdl = sklearn.decomposition.NMF(n_components=ncomp, init="random",random_state=17,alpha=0,l1_ratio=0)
                 
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
-                    W = self._decomp_mdl.fit(dx1)
+                    self._decomp_mdl.fit(dx1)
                 
             self._orig_decomp_mdl = copy.deepcopy(self._decomp_mdl)
             print(' done.')
@@ -926,9 +962,16 @@ class SchemaQP:
             W = self._decomp_mdl.transform(dx1)
             if do_whiten:
                 H = self._decomp_mdl.components_
+                
                 wsd = W.std(axis=0)
                 W = W/wsd
                 self._decomp_mdl.components_ *= wsd[:,None]
+                
+                # hsd = np.sqrt(np.sum(H**2, axis=1))
+                # H = H/hsd[:,None]
+                # self._decomp_mdl.components_ = H
+                # W = W*hsd[None,:]
+                
             dx = W
 
 

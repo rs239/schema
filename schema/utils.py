@@ -23,7 +23,7 @@ sys.path = copy.copy(oldpath)
 ####
 
 
-def get_louvain_clustering(mtx, num_neighbors=30):
+def get_leiden_clustering(mtx, num_neighbors=30):
         import igraph
         gNN = igraph.Graph()
         N = mtx.shape[0]

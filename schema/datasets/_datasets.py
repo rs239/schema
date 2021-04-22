@@ -34,3 +34,11 @@ def fly_brain():
     adata = scanpy.read("datasets/Davie_fly_brain.h5", backup_url="http://schema.csail.mit.edu/datasets/Davie_fly_brain.h5")
     return adata
 
+
+def scicar_mouse_kidney():
+    """ Anndata object containing scRNA-seq+ATAC-seq data of mouse kidney cells from the Sci-CAR study (GSE117089, Cao et al., Science 2018)
+"""
+    
+    adata = scanpy.read("datasets/Cao_mouse_kidney.h5", backup_url="http://schema.csail.mit.edu/datasets/Cao_mouse_kidney.h5")
+    return adata
+
