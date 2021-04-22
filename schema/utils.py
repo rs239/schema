@@ -34,7 +34,7 @@ def get_leiden_clustering(mtx, num_neighbors=30):
         gNN.add_edges([ (i,j) for i,j in zip(mNN.row, mNN.col)])
         schema_debug("Flag 192.50 ")
         import leidenalg as la
-        p1 = la.find_partition(gNN, la.ModularityVertexPartition)
+        p1 = la.find_partition(gNN, la.ModularityVertexPartition, seed=0)
         schema_debug("Flag 192.60 ")
         return   np.array([a for a in p1.membership])
 

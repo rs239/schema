@@ -942,7 +942,7 @@ class SchemaQP:
                     self._decomp_mdl.fit(dx1)
 
             elif model_type=="nmf":
-                self._decomp_mdl = sklearn.decomposition.NMF(n_components=ncomp, init="random",random_state=17,alpha=0,l1_ratio=0)
+                self._decomp_mdl = sklearn.decomposition.NMF(n_components=ncomp, random_state=0, alpha=0, l1_ratio=0)
                 
                 with warnings.catch_warnings():
                     warnings.simplefilter("ignore")
@@ -963,8 +963,8 @@ class SchemaQP:
             if do_whiten:
                 H = self._decomp_mdl.components_
                 
-                wsd = W.std(axis=0)
-                W = W/wsd
+                wsd = np.ravel(np.sqrt(np.sum(W**2, axis=0))) #W.std(axis=0)
+                W = W/wsd[None,:]
                 self._decomp_mdl.components_ *= wsd[:,None]
                 
                 # hsd = np.sqrt(np.sum(H**2, axis=1))

@@ -1,8 +1,10 @@
 Example Usage
 =======
 
+Dummy Examples
+~~~~~~~~~~~~~~
 
-*Note*: The code snippets below show how Schema could be used for hypothetical datasets. In `Visualization`_, we describe a worked example where we also provide the dataset to try things on. We are working to add more datasets.
+*Note*: The code snippets below show how Schema could be used for hypothetical datasets. In the next section (`Paired RNA-seq and ATAC-seq`_) and in `Visualization`_, we describe worked examples where we also provide the dataset to try things on. We are working to add more datasets.
 
 
 **Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information.
@@ -36,4 +38,129 @@ Example Usage
 
 
 
+
+Paired RNA-seq and ATAC-seq
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here, we integrate simultaneously assayed RNA- and ATAC-seq data from `Cao et al.'s`_ sci-CAR study of mouse kidney cells. We have preprocessed the dataset, done some basic cleanup, and put it into an AnnData object that you can download. Please remember to also cite the original study if you use this dataset.
+
+This example involves generating Leiden clusters; you will need to install the *igraph* and *leidenalg* Python packages if you want to use them:
+
+.. code_block:: Shell
+   pip install igraph
+   pip install leidenalg
+
+Let's start by getting the data.
+   
+.. code_block:: Python
+
+   import schema
+   adata = schema.datasets.scicar_mouse_kidney()
+   print(adata.shape, adata.uns['atac.X'].shape)
+   print(adata.uns.keys())
+   
+As you see, we have stored the ATAC data (as a sparse numpy matrix) in the .uns slots of the anndata object. Also look at the *adata.obs* dataframe which has t-SNE coordinates, ground-truth cell type names (as assigned by Cao et al.) and cluster colors etc. You'll notice that some cells don't have ground truth assignments. When evaluating, we'll skip those.
+
+
+To use the ATAC-seq data, we reduce its dimensionality to 50. Instead of PCA, we apply *TruncatedSVD* since the ATAC counts matrix is sparse.
+
+.. code_block:: Python
+   
+   svd2 = sklearn.decomposition.TruncatedSVD(n_components= 50, random_state = 17)
+   H2 = svd2.fit_transform(adata.uns["atac.X"])
+
+
+Next, we run Schema. We choose RNA-seq as the primary modality because 1) it has lower noise than ATAC-seq, and 2) we want to investigate which of its features (i.e., genes) are important during the integration. We will first perform a NMF transformation on the RNA-seq data. For the secondary modality, we'll use the dimensionality-reduced ATAC-seq. We require a positive correlation  between the two (`secondary_data_wt_list = [1]` below). *Importantly, we force Schema to generate a low-distortation transformation*: the correlation of distances between original RNA-seq space and the transformed space, `min_desired_corr` is required to be >99%. This low-distortion capability of Schema is crucial here, as we'll demonstrate.
+
+In the `params` settings below, the number of randomly sampled point-pairs has been bumped up to 5M (from default=2M). It helps with the accuracy and doesn't cost too much computationally. We also turned off `do_whiten` (default=1, i.e., true). When `do_whiten=1`, Schema first rescales the PCA/NMF transformation so that each axis has unit variance; typically, doing so is "nice" from a theoretical/statistical perspective. But it can interfere with downstream analyses (e.g., Leiden clustering here). When in doubt, set it to 0.
+
+.. code_block:: Python
+		
+   sqp99 = schema.SchemaQP(0.99, mode='affine', params= {"decomposition_model":"nmf", 
+							 "num_top_components":50,
+							 "do_whiten": 0,
+							 "dist_npairs": 5000000})
+   dz99 = sqp99.fit_transform(adata.X, [H2], ['feature_vector'], [1])
+
+
+Let's look at the feature weights. Since we ran the code in 'affine' mode, the raw weights from the quadratic program will correspond to the 50 NMF factors. Three of these factors seem to stand out; most other weights are quite low.
+
+.. code_block:: Python
+		
+   plt.plot(sqp99._wts)
+
+   
+Schema offers a helper function to convert these NMF (or PCA) feature weights to gene weights. The function offers a few ways of doing so, but the default is to simply average the loadings across the top-k factors:
+
+.. code_block:: Python
+
+   v99 = sqp99.feature_weights("top-k-loading", 3)
+
+
+Let's do a dotplot to see how the expression of these genes varies by cell name. We plot the top 10 genes by importance here. As you'll notice, they seem to be differentially expressed in PT cells and Ki-67+ cells. Essentially, these are cell types where ATAC-seq data was most informative. As we'll see shortly, it is in these cells where Schema is able to offer the biggest improvement.
+
+.. code_block:: Python
+
+   dfv99 = pd.DataFrame({"gene": adata.var_names, "v":v99}).sort_values("v", ascending=False).reset_index(drop=True)
+   sc.pl.dotplot(adata, dfv99.gene.head(10).tolist(),'cell_name_short', figsize=(8,6))
+
+For a comparison later, let's also do a Schema run without a strong distortion control. Below, we set the `min_desired_corr` parameter to 0.10 (i.e., 10%). Thus, the ATAC-seq data will get to influence the transformation a lot more.
+
+.. code_block:: Python
+
+    sqp10 = schema.SchemaQP(0.10, mode='affine', params= {"decomposition_model":"nmf", 
+							  "num_top_components":50, 
+							  "do_whiten": 0,
+							  "dist_npairs": 5000000})
+    dz10 = sqp10.fit_transform(adata.X, [H2], ['feature_vector'], [1])		 
+
+    
+Finally, let's do Leiden clustering of the RNA-seq, ATAC-seq, and the two Schema runs. We'll compare the cluster assignments to the ground truth cell labels. Intuitively, by combining RNA-seq and ATAC-seq, one should be able to get a more biologically accurate clustering. We visually evaluate the clusterings below; in the paper, we've supplemented this with more quantitative estimates.
+
+.. code_block:: Python
+
+   import schema.utils
+   fcluster = schema.utils.get_leiden_clustering #feel free to try your own clustering algo
+
+   ld_cluster_rna = fcluster(sqp99._decomp_mdl.transform(adata.X.todense()))
+   ld_cluster_atac = fcluster(H2)
+   ld_cluster_sqp99 = fcluster(dz99)
+   ld_cluster_sqp10 = fcluster(dz10)
+
+   
+.. code_block:: Python
+		
+   x = adata.obs.tsne_1
+   y = adata.obs.tsne_2
+   idx = adata.obs.rgb.apply(lambda s: isinstance(s,str) and '#' in s).values.tolist() #skip nan cells
+
+   fig, axs = plt.subplots(3,2, figsize=(10,15))
+   axs[0][0].scatter(x[idx], y[idx], c=adata.obs.rgb.values[idx], s=1)
+   axs[0][0].set_title('Ground Truth')
+   axs[0][1].scatter(x[idx], y[idx], c=adata.obs.rgb.values[idx], s=1, alpha=0.1)
+   axs[0][1].set_title('Ground Truth Labels')
+   for c in np.unique(adata.obs.cell_name_short[idx]):
+       if c=='nan': continue
+       cx,cy = x[adata.obs.cell_name_short==c].mean(), y[adata.obs.cell_name_short==c].mean()
+       axs[0][1].text(cx,cy,c,fontsize=10)
+   axs[1][0].scatter(x[idx], y[idx], c=ld_cluster_rna[idx], cmap='tab20b', s=1)
+   axs[1][0].set_title('RNA-seq')
+   axs[1][1].scatter(x[idx], y[idx], c=ld_cluster_atac[idx], cmap='tab20b', s=1)
+   axs[1][1].set_title('ATAC-seq')
+   axs[2][0].scatter(x[idx], y[idx], c=ld_cluster_sqp99[idx], cmap='tab20b', s=1)
+   axs[2][0].set_title('Schema-99%')
+   axs[2][1].scatter(x[idx], y[idx], c=ld_cluster_sqp10[idx], cmap='tab20b', s=1)
+   axs[2][1].set_title('Schema-10%')
+
+   for ax in np.ravel(axs): ax.axis('off')
+
+   
+
+Below, we show the figures in a 3x2 panel of t-SNE plots. The first row has the cells colored by ground-truth cell types; the second panel is basically the same but lists the cell types explicitly. The next row shows cells colored by RNA- or ATAC-only clustering. Notice how noisy the ATAC-only clustering is! This is not a bug-- less than 0.3% of ATAC count matrix entries are non-zero and the sparsity of the ATAC data makes it difficult to estimate high-quality cell type estimtes.
+
+ The third row has cells colored by Schema-based clustering at 99% and 10%  `min_desired_corr` thresholds. With Schema at a low-distortion (i.e., `min_desired_corr = 99%`) setting, notice that some of the PT cells and Ki-67+ cells are getting correctly classified. The Schema-implied clustering is better than the RNA-seq clustering (this can be quantified by measuring the overlap with ground truth cell groupings). This is why we think Schema is cool-- even with a modality that is sparse and noisy (like ATAC-seq here), it can nonetheless extract something of value from it because it doesn't overly trust the noisy modality (here, ATAC-seq). **This is a key reason why we recommend that your highest-confidence modality be set as the primary**. Lastly, if you relax the distortion constraint by setting `min_desired_corr = 10%`, you'll notice that the noise of ATAC-seq data swamps out the RNA-seq signal. With an unconstrained approach (e.g., CCA or some deep learning approaches), this ends being a major problem.
+
+
 .. _Visualization: https://schema-multimodal.readthedocs.io/en/latest/visualization/index.html#ageing-fly-brain
+
+.. _Cao et al.'s: https://science.sciencemag.org/content/361/6409/1380/
