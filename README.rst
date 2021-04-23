@@ -28,5 +28,5 @@ We encourage you to report issues at our `Github page`_ ; you can also create pu
 If Schema is useful for your research, please consider citing `bioRxiv (2019)`_.
 
 .. _documentation: https://schema-multimodal.readthedocs.io/en/latest/overview.html
-.. _bioRxiv (2019): https://www.biorxiv.org/content/10.1101/834549v1
+.. _bioRxiv (2019): http://doi.org/10.1101/834549
 .. _Github page: https://github.com/rs239/schema

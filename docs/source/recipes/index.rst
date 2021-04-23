@@ -4,7 +4,7 @@ Data Integration Examples
 API-usage Examples
 ~~~~~~~~~~~~~~
 
-*Note*: The code snippets below show how Schema could be used for hypothetical datasets and illustrates how the API can be used. In the next section (`Paired RNA-seq and ATAC-seq`_) and in `Visualization`_, we describe worked examples where we also provide the dataset to try things on. We are working to add more datasets.
+*Note*: The code snippets below show how Schema could be used for hypothetical datasets and illustrates the API usage. In the next section (`Paired RNA-seq and ATAC-seq`_) and in `Visualization`_, we describe worked examples where we also provide the dataset to try things on. We are working to add more datasets.
 
 
 **Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information.
@@ -46,7 +46,7 @@ Here, we integrate simultaneously assayed RNA- and ATAC-seq data from `Cao et al
 
 *Note*: This example involves generating Leiden clusters; you will need to install the *igraph* and *leidenalg* Python packages if you want to use them:
 
-.. code-block:: Shell
+.. code-block:: bash
 
     pip install igraph
     pip install leidenalg
@@ -168,11 +168,11 @@ Finally, let's do Leiden clustering of the RNA-seq, ATAC-seq, and the two Schema
 
    
 
-Below, we show the figures in a 3x2 panel of t-SNE plots. In the first row, the left panel shows the cells colored by ground-truth cell types; the right panel is basically the same but lists the cell types explicitly. The next row shows cells colored by RNA- or ATAC-only clustering. Notice how noisy the ATAC-only clustering is! This is not a bug in our analysis-- less than 0.3% of ATAC count matrix entries are non-zero and the sparsity of the ATAC data makes it difficult to estimate high-quality cell type estimtes.
+Below, we show the figures in a 3x2 panel of t-SNE plots. In the first row, the left panel shows the cells colored by ground-truth cell types; the right panel is basically the same but lists the cell types explicitly. The next row shows cells colored by RNA- or ATAC-only clustering. Notice how noisy the ATAC-only clustering is! This is not a bug in our analysis-- less than 0.3% of ATAC count matrix entries are non-zero and the sparsity of the ATAC data makes it difficult to produce high-quality cell type estimates.
 
-The third row shows cells colored by Schema-based clustering at 99% (left) and 10% (right)  `min_desired_corr` thresholds. With Schema at a low-distortion (i.e., `min_desired_corr = 99%`) setting, notice that PT cells and Ki-67+ cells, circled in red, are getting more correctly classified now. This improvement of the Schema-implied clustering over the RNA-seq-only clustering can be quantified by measuring the overlap with ground truth cell grouping, as we do in the paper.
+The third row shows cells colored by Schema-based clustering at 99% (left) and 10% (right)  `min_desired_corr` thresholds. With Schema at a low-distortion setting (i.e., `min_desired_corr = 99%`), notice that PT cells and Ki-67+ cells, circled in red, are getting more correctly classified now. This improvement of the Schema-implied clustering over the RNA-seq-only clustering can be quantified by measuring the overlap with ground truth cell grouping, as we do in the paper.
 
-**This is a key strength of Schema** -- even with a modality that is sparse and noisy (like ATAC-seq here), it can nonetheless extract something of value from the noisy modality because the constraint on distortion of the primary modality acts as a regularization. This is also why we recommend that your highest-confidence modality be set as the primary. Lastly as demonstration, if we relax the distortion constraint by setting `min_desired_corr = 10%`, you'll notice that the noise of ATAC-seq data does swamp out the RNA-seq signal. With an unconstrained approach (e.g., CCA or some deep learning approaches), this ends being a major challenge.
+**This is a key strength of Schema** --- even with a modality that is sparse and noisy (like ATAC-seq here), it can nonetheless extract something of value from the noisy modality because the constraint on distortion of the primary modality acts as a regularization. This is also why we recommend that your highest-confidence modality be set as the primary. Lastly as demonstration, if we relax the distortion constraint by setting `min_desired_corr = 10%`, you'll notice that the noise of ATAC-seq data does swamp out the RNA-seq signal. With an unconstrained approach (e.g., CCA or some deep learning approaches), this ends being a major challenge.
 
  .. image:: ../_static/schema_atacrna_demo_tsne1.png
    :width: 600

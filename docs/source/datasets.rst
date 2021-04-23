@@ -4,7 +4,7 @@ Datasets
 Ageing *Drosophila* brain
 ~~~~~~~~~~~~~~~~~~~~~~
 
-This is sourced from `Davie et al.`_ (*Cell* 2018, `GSE 107451`_) and contains scRNA-seq data from a collection of fly brain cells along with each cell's age (in days). It is a useful dataset for exploring a common scenario in multi-modal integration: scRNA-seq data aligned to a 1-dimensional secondary modality. Please see the `example in Visualization` where this dataset is used. 
+This is sourced from `Davie et al.`_ (*Cell* 2018, `GSE 107451`_) and contains scRNA-seq data from a collection of fly brain cells along with each cell's age (in days). It is a useful dataset for exploring a common scenario in multi-modal integration: scRNA-seq data aligned to a 1-dimensional secondary modality. Please see the `example in Visualization`_ where this dataset is used. 
 
 .. code-block:: Python
 
