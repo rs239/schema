@@ -848,8 +848,10 @@ class SchemaQP:
         groupcorr_score = (np.dot(w,q1)/nPointPairs)/newmetric_sd
         
         out_sec_modality_corrs = [ ((np.dot(w,qx)/nPointPairs)/newmetric_sd)[0] for qx in l_q]
+        
         w_ones = np.ones_like(w)
-        inp_sec_modality_corrs = [ ((np.dot(w_ones,qx)/nPointPairs)) for qx in l_q]
+        oldmetric_sd = np.sqrt( np.matmul(np.matmul(np.reshape(w_ones,(1,K)), P1), np.reshape(w_ones,(K,1)))[0] / nPointPairs)        
+        inp_sec_modality_corrs = [ ((np.dot(w_ones,qx)/nPointPairs)/oldmetric_sd)[0] for qx in l_q]
 
         schema_debug("Flag 485.30 ", newmetric_sd, oldnew_corr, groupcorr_score, out_sec_modality_corrs, inp_sec_modality_corrs)
         
