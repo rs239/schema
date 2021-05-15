@@ -368,6 +368,8 @@ class SchemaQP:
         for i, secd in enumerate(t_secondary_data_val_list):
             if any_nans(secd): raise ValueError('{}-th entry in secondary_data_val_list has NaN or inf values'.format(i+1))
                 
+
+        np.random.seed(0) # try to get repeated runs to look as similar as possible
         
         if self._mode=="scale":
             self._fit_scale(t_d, t_d0, t_secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
@@ -535,8 +537,126 @@ class SchemaQP:
 
 
 
-            
 
+
+            
+            
+    def get_start_end_dist_correlations(self):
+        """Return the starting and ending distance correlations between primary and secondary modalities
+
+        Note: the distance correlations reported out (even between the primary and secondary modalities) may vary
+        from run to run, since the underlying algorithm samples a set of point pairs to compute its estimates.
+
+        :returns: a tuple with 3 entries: 
+            a) distance correlation between primary and transformed space. This should always be >= min_desired_corr but 
+            it can be substantially greater than min_desired_corr if the optimal solution requires that. 
+
+            b) vector of distance correlations between primary and secondary modalities, and 
+
+            c) vector of distance correlations between transformed dataset and secondary modalities
+ """
+        retval = {}
+        for k in ["distcorr", "inp_sec_modality_corrs", "out_sec_modality_corrs"]:
+            retval[k] = self._soln_info.get(k,None)
+        return retval["distcorr"], retval["inp_sec_modality_corrs"], retval["out_sec_modality_corrs"]
+
+
+
+    
+            
+    def explore_param_mincorr(self,
+                              d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None,
+                              min_desired_corr_values = [0.999, 0.99, 0.95, 0.9, 0.8, 0.5, 0.2, 0],
+                              **kwargs):
+        """Helper function to explore multiple choices of the min_desired_corr param. 
+
+        For a range of min_desired_corr parameter values, it performs a `fit`, gets the feature wts, and also the 
+        achieved distance correlation between the transformed data and the primary/secondary modalities. While this
+        method is simply a convenience wrapper around other public methods, it is nonetheless useful for exploring the 
+        best choice of min_desired_corr for your application. For example, if you're doing batch correction and hence set
+        a secondary modality's wt to be negative, you want the distance correlation of batch information and 
+        transformed data to go to zero, not beyond that into negative correlation territory. 
+        This function can help you explore such choices.
+
+
+        The required arguments are the same as those for a call to `fit` (which this method calls, under the hood). 
+        The default list of possible values for min_desired_corr is a good place to start. 
+
+        :type d: Numpy 2-d `array` or Pandas `dataframe`
+
+        :param d: 
+            Same as in `fit`: the primary dataset (e.g. scanpy/anndata's .X). 
+
+        :type secondary_data_val_list: list of 1-d or 2-d Numpy arrays or Pandas series, each with same number of rows as `d`
+
+        :param secondary_data_val_list: 
+            Same as in `fit`: the secondary datasets you want to align the primary data towards.  
+
+        :type secondary_data_type_list: list of strings
+
+        :param secondary_data_type_list: 
+            Same as in `fit`: the datatypes of the secondary modalities.
+
+        :type secondary_data_wt_list: list of floats, **optional**
+
+        :param secondary_data_wt_list: 
+            Same as in `fit`: user-specified wts for each secondary dataset (default= list of 1's)
+
+        :type min_desired_corr_values: list of floats, each value v being 0 <= v < 1
+
+        :param min_desired_corr_values: 
+           list of min_desired_corr values to explore. The default is  [0.999, 0.99, 0.95, 0.9, 0.8, 0.5, 0.2, 0]
+
+        :type kwargs: additional named arguments passed on to methods like fit(...) and feature_weights(...)
+
+
+        :returns: a tuple with 3 entries. In the first 2 below, each row of the dataframe corresponds to a min_desired_corr value
+            a) Dataframe of starting and ending distance correlations (see `get_start_end_dist_correlations` for details)
+
+            b) Dataframe of feature weights, produced by a call to `feature_weights` (use **kwargs to specify parameters to it)
+
+            d) Dictionary of SchemaQP objects, keyed by the min_desired_corr parameter. You can use them for `transform` calls.
+ """
+        
+        try:
+            assert isinstance(min_desired_corr_values,list) and len(min_desired_corr_values) > 0
+            for a in min_desired_corr_values:
+                assert 0 <= a < 1
+        except:
+            raise ValueError( 'mincorr_values should be a non-empty list of floats v, with 0 <= v < 1')
+
+        mcvals = list(reversed(sorted(min_desired_corr_values)))
+
+        ret_sqp, ret_sqpwts, ret_featwts, ret_distcorrs = {},  [], [], []
+        prev_sqp = self
+        for i, mc in enumerate(mcvals):
+            print("Evaluating min_desired_corr: {}".format(mc))
+            sqp1 = copy.deepcopy(prev_sqp)
+            sqp1.reset_mincorr_param(mc)
+            sqp1.fit(d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list, **kwargs)
+            prev_sqp = sqp1
+            
+            ret_sqp[mc] = sqp1
+            ret_sqpwts.append( [mc] + list(sqp1._wts))
+            ret_featwts.append( [mc] + list(sqp1.feature_weights(**kwargs)))
+            prim_distcorr, inp_sec_distcorrs, out_sec_distcorrs = sqp1.get_start_end_dist_correlations()
+            ret_distcorrs.append([mc, prim_distcorr] + inp_sec_distcorrs + out_sec_distcorrs)
+
+        df_sqpwts = pd.DataFrame(ret_sqpwts,
+                                 columns = ['min_corr'] + ['QPdim_{}'.format(i+1) for i in range(len(ret_sqpwts[0])-1)])
+
+        df_featwts = pd.DataFrame(ret_featwts,
+                                  columns = ['min_corr'] + ['PrimFeat_{}'.format(i+1) for i in range(len(ret_featwts[0])-1)])
+
+        df_distcorrs = pd.DataFrame(ret_distcorrs,
+                                    columns = (['min_corr', 'prim_vs_output_distcorr'] +
+                                               ['prim_vs_sec{}_distcorr'.format(i+1) for i in range(len(secondary_data_wt_list))] +
+                                               ['output_vs_sec{}_distcorr'.format(i+1) for i in range(len(secondary_data_wt_list))]))
+
+        # return df_distcorrs, df_featwts, df_sqpwts, ret_sqp
+        
+        return df_distcorrs, df_featwts, ret_sqp #skipping df_sqpwts to avoid confusion with df_featwts
+    
 
 
             
@@ -667,16 +787,19 @@ class SchemaQP:
                 dg = f_dist_dg(dg)
                 
             z_dg = (dg - dg.mean())/dg.std()
+
+            gwt = 1
             if gamma_g is not None:
                 z_dg *= gamma_g
+                gwt = gamma_g
                 
-            l_z_dg.append(z_dg)
+            l_z_dg.append((gwt, z_dg))
 
-        schema_info ("Flag 201.99 ", uv_dist_centered.shape, z_d0.shape, len(l_z_dg), l_z_dg[0].shape)
+        schema_info ("Flag 201.99 ", uv_dist_centered.shape, z_d0.shape, len(l_z_dg), l_z_dg[0][1].shape)
         schema_info ("Flag 201.991 ", uv_dist_centered.mean(axis=0))
         schema_info ("Flag 201.992 ", uv_dist_centered.std(axis=0))
         schema_info ("Flag 201.993 ", z_d0[:10], z_d0.mean(), z_d0.std())
-        schema_info ("Flag 201.994 ", l_z_dg[0][:10], l_z_dg[0].mean(), l_z_dg[0].std())
+        schema_info ("Flag 201.994 ", l_z_dg[0][0], l_z_dg[0][1][:10], l_z_dg[0][1].mean(), l_z_dg[0][1].std())
         return (uv_dist_centered, z_d0, l_z_dg)
 
 
@@ -685,12 +808,13 @@ class SchemaQP:
     def _prepareQPterms(self, uv_dist_centered, z_d0, l_z_dg):
         nPointPairs = uv_dist_centered.shape[0]
         
-        l_g = []
-        for i,z_dg in enumerate(l_z_dg):
-            l_g.append( np.sum(uv_dist_centered * z_dg[:,None], axis=0) )
+        l_wq, l_q = [], []
+        for i, (gwt, z_dg) in enumerate(l_z_dg):
+            l_wq.append( np.sum(uv_dist_centered * z_dg[:,None], axis=0) )
+            l_q.append(  np.sum(uv_dist_centered * z_dg[:,None]/gwt, axis=0) )
             
-        q1 = l_g[0]
-        for v in l_g[1:]:
+        q1 = l_wq[0]
+        for v in l_wq[1:]:
             q1 += v
         
         P1 = np.matmul( uv_dist_centered.T,  uv_dist_centered)
@@ -698,22 +822,32 @@ class SchemaQP:
         g1 = np.sum(uv_dist_centered * z_d0[:,None], axis=0)
         h1 = np.sum(g1)
 
-        return (P1, q1, g1, h1, nPointPairs)
+        return (P1, q1, g1, h1, l_q, nPointPairs)
 
     
 
-    def _computeSolutionFeatures(self, w, P1, q1, g1, nPointPairs):
+    def _computeSolutionFeatures(self, w, P1, q1, g1, l_q, nPointPairs):
         K = len(w)
         
         newmetric_sd = np.sqrt( np.matmul(np.matmul(np.reshape(w,(1,K)), P1), np.reshape(w,(K,1)))[0] / nPointPairs)
         oldnew_corr = ((np.dot(w,g1)/nPointPairs)/newmetric_sd) / (self._params["d0_orig_transformed_corr"])
 
         groupcorr_score = (np.dot(w,q1)/nPointPairs)/newmetric_sd
-        return {"w": w, "distcorr": oldnew_corr[0], "objval": groupcorr_score[0]}
+        
+        out_sec_modality_corrs = [ ((np.dot(w,qx)/nPointPairs)/newmetric_sd)[0] for qx in l_q]
+        w_ones = np.ones_like(w)
+        inp_sec_modality_corrs = [ ((np.dot(w_ones,qx)/nPointPairs)) for qx in l_q]
+
+        schema_debug("Flag 485.30 ", newmetric_sd, oldnew_corr, groupcorr_score, out_sec_modality_corrs, inp_sec_modality_corrs)
+        
+        return {"w": w, "distcorr": oldnew_corr[0],
+                "objval": groupcorr_score[0],
+                "out_sec_modality_corrs": out_sec_modality_corrs,
+                "inp_sec_modality_corrs": inp_sec_modality_corrs}
         
 
     
-    def _doQPSolve(self, P1, q1, g1, h1, nPointPairs, lambda1, alpha, beta):
+    def _doQPSolve(self, P1, q1, g1, h1, l_q, nPointPairs, lambda1, alpha, beta):
         #https://cvxopt.org/examples/tutorial/qp.html and https://courses.csail.mit.edu/6.867/wiki/images/a/a7/Qp-cvxopt.pdf
         #  the cvx example switches P & q to Q & p
         
@@ -745,7 +879,7 @@ class SchemaQP:
         solvers.options["show_progress"] = True
 
         w = np.array(sol['x']).ravel()
-        s = self._computeSolutionFeatures(w, P1, q1, g1, nPointPairs)
+        s = self._computeSolutionFeatures(w, P1, q1, g1, l_q, nPointPairs)
         return s
 
     
@@ -755,6 +889,8 @@ class SchemaQP:
         retl.append(("w_num_zero_dims", sum(soln["w"] < 1e-5)))
         retl.append(("d0_orig_transformed_corr", self._params["d0_orig_transformed_corr"]))
         retl.append(("distcorr", soln["distcorr"]))
+        retl.append(("inp_sec_modality_corrs", soln["inp_sec_modality_corrs"]))
+        retl.append(("out_sec_modality_corrs", soln["out_sec_modality_corrs"]))
         retl.append(("objval", soln["objval"]))
         retl.append(("lambda", free_params["lambda"]))
         retl.append(("alpha", free_params["alpha"]))
@@ -764,14 +900,14 @@ class SchemaQP:
                     
 
     
-    def _doQPiterations(self, P1, q1, g1, h1, nPointPairs, max_w_wt, min_desired_oldnew_corr):
+    def _doQPiterations(self, P1, q1, g1, h1, l_q, nPointPairs, max_w_wt, min_desired_oldnew_corr):
         solutionList = []
 
         schema_info('Progress bar (each dot is 10%): ', end='', flush=True)
 
         alpha = 1.0  #start from one (i.e. no limit on numerator and make it bigger)
         while alpha > 1e-5:
-            soln, param_settings = self._iterateQPLevel1(P1, q1, g1, h1, nPointPairs, max_w_wt, min_desired_oldnew_corr, alpha)
+            soln, param_settings = self._iterateQPLevel1(P1, q1, g1, h1, l_q, nPointPairs, max_w_wt, min_desired_oldnew_corr, alpha)
             
             if soln is not None and soln["distcorr"] >= min_desired_oldnew_corr:
                 solutionList.append((-soln["objval"], soln, param_settings))
@@ -791,13 +927,13 @@ class SchemaQP:
         
 
         
-    def _iterateQPLevel1(self, P1, q1, g1, h1, nPointPairs, max_w_wt, min_desired_oldnew_corr, alpha):
+    def _iterateQPLevel1(self, P1, q1, g1, h1, l_q, nPointPairs, max_w_wt, min_desired_oldnew_corr, alpha):
         solutionList = []
 
         beta = 1e6  #start from a large value and go towards zero (a large value means the denominator will need to be small)
         while beta > 1e-6:
             try:
-                soln, param_settings = self._iterateQPLevel2(P1, q1, g1, h1, nPointPairs, max_w_wt, alpha, beta)
+                soln, param_settings = self._iterateQPLevel2(P1, q1, g1, h1, l_q, nPointPairs, max_w_wt, alpha, beta)
             except Exception as e:
                 schema_info ("Flag 110.50 crashed in _iterateQPLevel2. Trying to continue...", P1.size, q1.size, g1.size, max_w_wt, alpha, beta)
                 schema_info(e)
@@ -807,6 +943,7 @@ class SchemaQP:
             if soln["distcorr"] >= min_desired_oldnew_corr:
                 solutionList.append((-soln["objval"], soln, param_settings))
 
+            schema_debug ("Flag 110.55 ", beta, len(solutionList), solutionList[0])
             beta *= 0.5
         
         try:
@@ -815,22 +952,21 @@ class SchemaQP:
             schema_debug ("Flag 110.60 beta: ", "NONE" if not solutionList else self._summarizeSoln(solutionList[0][1], solutionList[0][2]))
             return (solutionList[0][1], solutionList[0][2])
         except:
-            #raise
             return (None, {})
 
 
 
-    def _iterateQPLevel2(self, P1, q1, g1, h1, nPointPairs, max_w_wt, alpha, beta):
+    def _iterateQPLevel2(self, P1, q1, g1, h1, l_q, nPointPairs, max_w_wt, alpha, beta):
         lo=1e-10 #1e-6
-        solLo = self._doQPSolve(P1, q1, g1, h1, nPointPairs, 1/lo, alpha, beta)
+        solLo = self._doQPSolve(P1, q1, g1, h1, l_q, nPointPairs, 1/lo, alpha, beta)
         scalerangeLo = (max(solLo["w"])/np.nanmean(solLo["w"]))
         
         hi=1e9 #1e6
-        solHi = self._doQPSolve(P1, q1, g1, h1, nPointPairs, 1/hi, alpha, beta)
+        solHi = self._doQPSolve(P1, q1, g1, h1, l_q, nPointPairs, 1/hi, alpha, beta)
         scalerangeHi = (max(solHi["w"])/np.nanmean(solHi["w"]))
 
         if scalerangeHi < max_w_wt:
-            solZero = self._doQPSolve(P1, q1, g1, h1, nPointPairs, 0, alpha, beta)
+            solZero = self._doQPSolve(P1, q1, g1, h1, l_q, nPointPairs, 0, alpha, beta)
             scalerangeZero = (max(solZero["w"])/np.nanmean(solZero["w"]))
             if scalerangeZero < max_w_wt and int(self._params.get("require_nonzero_lambda",0))==0:
                 return solZero, {"lambda": 0, "alpha": alpha, "beta": beta} 
@@ -842,7 +978,7 @@ class SchemaQP:
         niter=0
         while (niter < 60 and (hi/lo -1)>0.001):
             mid = np.exp((np.log(lo)+np.log(hi))/2)
-            solMid = self._doQPSolve(P1, q1, g1, h1, nPointPairs, 1/mid, alpha, beta)
+            solMid = self._doQPSolve(P1, q1, g1, h1, l_q, nPointPairs, 1/mid, alpha, beta)
             scalerangeMid = (max(solMid["w"])/np.nanmean(solMid["w"]))
             
             if (scalerangeLo <= max_w_wt <= scalerangeMid):
@@ -887,10 +1023,10 @@ class SchemaQP:
         schema_info ("Flag 102.35 ", dx.shape, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list)
         uv_dist_centered, z_d0, l_z_dg = self._getDistances(dx, d0, G, nPointPairs)
         schema_info ("Flag 102.36 ", uv_dist_centered.shape, z_d0.shape, len(l_z_dg))
-        P1, q1, g1, h1, nPointPairs1 = self._prepareQPterms(uv_dist_centered, z_d0, l_z_dg)
+        P1, q1, g1, h1, l_q, nPointPairs1 = self._prepareQPterms(uv_dist_centered, z_d0, l_z_dg)
         schema_info ("Flag 102.37 ")
         
-        soln, free_params = self._doQPiterations(P1, q1, g1, h1, nPointPairs1, w_max_to_avg, min_desired_corr)
+        soln, free_params = self._doQPiterations(P1, q1, g1, h1, l_q, nPointPairs1, w_max_to_avg, min_desired_corr)
         
         if soln is None:
             raise Exception("Couldn't find valid solution to QP")
