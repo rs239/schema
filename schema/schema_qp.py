@@ -548,6 +548,7 @@ class SchemaQP:
         from run to run, since the underlying algorithm samples a set of point pairs to compute its estimates.
 
         :returns: a tuple with 3 entries: 
+
             a) distance correlation between primary and transformed space. This should always be >= min_desired_corr but 
             it can be substantially greater than min_desired_corr if the optimal solution requires that. 
 
@@ -567,16 +568,17 @@ class SchemaQP:
     def explore_param_mincorr(self,
                               d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list = None,
                               min_desired_corr_values = [0.999, 0.99, 0.95, 0.9, 0.8, 0.5, 0.2, 0],
-                              **kwargs):
+                              addl_fit_kwargs = {},
+                              addl_feature_weights_kwargs = {}):
         """Helper function to explore multiple choices of the min_desired_corr param. 
 
-        For a range of min_desired_corr parameter values, it performs a `fit`, gets the feature wts, and also the 
+        For a range of min_desired_corr parameter values, it performs a `fit`, gets the `feature_weights`, and also the 
         achieved distance correlation between the transformed data and the primary/secondary modalities. While this
         method is simply a convenience wrapper around other public methods, it is nonetheless useful for exploring the 
         best choice of min_desired_corr for your application. For example, if you're doing batch correction and hence set
         a secondary modality's wt to be negative, you want the distance correlation of batch information and 
         transformed data to go to zero, not beyond that into negative correlation territory. 
-        This function can help you explore such choices.
+        This function can help you identify an appropriate min_desired_corr value.
 
 
         The required arguments are the same as those for a call to `fit` (which this method calls, under the hood). 
@@ -607,13 +609,23 @@ class SchemaQP:
         :param min_desired_corr_values: 
            list of min_desired_corr values to explore. The default is  [0.999, 0.99, 0.95, 0.9, 0.8, 0.5, 0.2, 0]
 
-        :type kwargs: additional named arguments passed on to methods like fit(...) and feature_weights(...)
+        :type addl_fit_kwargs: dict 
 
+        :param addl_fit_kwargs: 
+           additional named arguments passed on to fit(...) 
 
-        :returns: a tuple with 3 entries. In the first 2 below, each row of the dataframe corresponds to a min_desired_corr value
+        :type addl_feature_weights_kwargs: dict 
+
+        :param addl_feature_weights_kwargs:
+           named arguments passed on to feature_weights(...) 
+
+        :returns: a tuple with 4 entries. In the first 3 below, each row of the dataframe corresponds to a min_desired_corr value
+
             a) Dataframe of starting and ending distance correlations (see `get_start_end_dist_correlations` for details)
 
-            b) Dataframe of feature weights, produced by a call to `feature_weights` (use **kwargs to specify parameters to it)
+            b) Dataframe of feature weights, produced by a call to `feature_weights` 
+
+            c) Dataframe of QP solution wts. Same as feature weights if mode='scale', otherwise this corresponds to the QP-computed wts in the PCA/NMF space
 
             d) Dictionary of SchemaQP objects, keyed by the min_desired_corr parameter. You can use them for `transform` calls.
  """
@@ -633,12 +645,12 @@ class SchemaQP:
             print("Evaluating min_desired_corr: {}".format(mc))
             sqp1 = copy.deepcopy(prev_sqp)
             sqp1.reset_mincorr_param(mc)
-            sqp1.fit(d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list, **kwargs)
+            sqp1.fit(d, secondary_data_val_list, secondary_data_type_list, secondary_data_wt_list, **addl_fit_kwargs)
             prev_sqp = sqp1
             
             ret_sqp[mc] = sqp1
             ret_sqpwts.append( [mc] + list(sqp1._wts))
-            ret_featwts.append( [mc] + list(sqp1.feature_weights(**kwargs)))
+            ret_featwts.append( [mc] + list(sqp1.feature_weights(**addl_feature_weights_kwargs)))
             prim_distcorr, inp_sec_distcorrs, out_sec_distcorrs = sqp1.get_start_end_dist_correlations()
             ret_distcorrs.append([mc, prim_distcorr] + inp_sec_distcorrs + out_sec_distcorrs)
 
@@ -653,9 +665,10 @@ class SchemaQP:
                                                ['prim_vs_sec{}_distcorr'.format(i+1) for i in range(len(secondary_data_wt_list))] +
                                                ['output_vs_sec{}_distcorr'.format(i+1) for i in range(len(secondary_data_wt_list))]))
 
-        # return df_distcorrs, df_featwts, df_sqpwts, ret_sqp
+        #return df_distcorrs, df_featwts, ret_sqp #skipping df_sqpwts to avoid confusion with df_featwts
+
+        return df_distcorrs, df_featwts, df_sqpwts, ret_sqp
         
-        return df_distcorrs, df_featwts, ret_sqp #skipping df_sqpwts to avoid confusion with df_featwts
     
 
 
