@@ -184,7 +184,7 @@ Paired-Tag
 
 Here we synthesize simultaneously assayed RNA-seq, ATAC-seq and histone-modification data at a single-cell resolution, from the Paired-Tag protocol described in `Zhu et al.’s study`_ of adult mouse frontal cortex and hippocampus (Nature Methods, 2021). This is a fascinating dataset with five different histone modifications assayed separately (3 repressors and 2 activators), in addition to RNA-seq and ATAC-seq. As in the original study, we consider each of the histone modifications as a separate modality, implying a hepta-modal assay! 
 
-Interestingly, though, the modalities are available only in pairwise combinations with RNA-seq: some cells were assayed for H3K4me1 & RNA-seq while another set of cells provided ATAC-seq & RNA-seq data. Here’s the overall distribution of non-RNA-seq modalities across 64,849 cells. 
+Interestingly, though, the modalities are available only in pairwise combinations with RNA-seq: some cells were assayed for H3K4me1 & RNA-seq while another set of cells provided ATAC-seq & RNA-seq data, and so on. Here’s the overall distribution of non-RNA-seq modalities across 64,849 cells. 
 
 
 .. image:: ../_static/schema_paired-tag_data-dist.png
@@ -196,7 +196,7 @@ With Schema, you can have your cake and eat it too! We do 6 two-way integrations
 
 Such full-dataset extensions of the pairwise syntheses can then be stacked together. Doing Leiden clustering on the result would enable us to infer cell types by integrating information from all modalities. As we will show below, Schema's synthesis helps improve the quality of cell type inference over what you could get just from RNA-seq. Similarly for feature selection, Schema's computed feature weights for each two-way synthesis can be averaged to get the genes important to the overall synthesis. In a completely automated fashion and without any knowledge of tissue’s source or biology, we’ll find that the genes Schema identifies as important turn out to be very relevant to neuronal function and disease. Ready for more?
 
-First, you will need the data. The original is available on GEO (`GSE152020`_) but the individual modalities are huge (e.g., the ATAC-seq peak-counts are in a 14,095 x 2,443,832 sparse matrix!). This is not unusual--- epigenetic modalites are typically very sparse (we discuss why this matters in `Paired RNA-seq and ATAC-seq`_). As a preprocessing step, we hence performed a singular value decomposition (SVD) of these modalities and also reduced the RNA-seq data to its 4,000 highly variable genes. An AnnData object with all this preprocessing is available here (please remember to also cite the original study if you use this dataset) :
+First, you will need the data. The original is available on GEO (`GSE152020`_) but the individual modalities are huge (e.g., the ATAC-seq peak-counts are in a 14,095 x 2,443,832 sparse matrix!). This is not unusual--- epigenetic modalites are typically very sparse (we discuss why this matters in `Paired RNA-seq and ATAC-seq`_). As a preprocessing step, we performed singular value decompositions (SVD) of these modalities and also reduced the RNA-seq data to its 4,000 highly variable genes. An AnnData object with this preprocessing is available here (please remember to also cite the original study if you use this dataset) :
 
 .. code-block:: bash
 
@@ -217,7 +217,7 @@ Let's load it in:
 	   [(c, adata.uns['SVD_'+c].shape) for c in adata.uns['sec_modalities']])
 
 	   
-As you see, we have stored the 50-dimensional SVDs of the secondary modalities in the .uns slots of the anndata object. Also look at the *adata.obs* dataframe which has UMAP coordinates, ground-truth cell type names (as assigned by Zhu et al.) etc.
+As you see, we have stored the 50-dimensional SVDs of the secondary modalities in the :code:`.uns` slots of the anndata object. Also look at the :code:`adata.obs` dataframe which has UMAP coordinates, ground-truth cell type names (as assigned by Zhu et al.) etc.
 
 
 We now do Schema runs for the 6 two-way modality combinations, with RNA-seq as the primary in each run. Each run will also store the transformation on the entire 64,849-cell RNA-seq dataset and also store the gene importances.
@@ -249,7 +249,7 @@ We now do Schema runs for the 6 two-way modality combinations, with RNA-seq as t
 	desc2transforms[desc] = (sqp, dz, idx1, sqp.feature_weights(k=3))
 
 
-**Cell type inference:**: In each of the 6 runs above, *dz* is a 64,849 x 50 matrix. We can horizontally stack these matrices for a 64,849 x 300 matrix that represents the transformation of RNA-seq data informed simultaneously by all 6 secondary modalities. 
+**Cell type inference:**: In each of the 6 runs above, :code:`dz` is a 64,849 x 50 matrix. We can horizontally stack these matrices for a 64,849 x 300 matrix that represents the transformation of RNA-seq data informed simultaneously by all 6 secondary modalities. 
    
 .. code-block:: Python
 
@@ -331,9 +331,9 @@ It's also interesting to identify cells where the cluster assignments changed af
 .. image:: ../_static/schema_paired-tag_gene_plots.png
    :width: 800
     
-Many of the top genes identified by Schema (e.g., `Erbb4`_, `Npas3`_, `Zbtb20`_, `Luzp2`_) are known to be relevant to neuronal function or disease. Note that all of this fell out of the synthesis directly--- we didn't do any differential expression analysis against an external background or provide the method some other indication that data is from brain tissue.
+Many of the top genes identified by Schema (e.g., `Erbb4`_, `Npas3`_, `Zbtb20`_, `Luzp2`_) are known to be relevant to neuronal function or disease. Note that all of this fell out of the synthesis directly--- we didn't do any differential expression analysis against an external background or provide the method some other indication that the data is from brain tissue.
 
-We did a GO enrichment analysis (via `Gorilla`_) of the top 100 genes by Schema weight. Here are the significant hits (FDR q-val < 0.1). Again, most GO terms relate to neuronal development, activity, and communication:
+We also did a GO enrichment analysis (via `Gorilla`_) of the top 100 genes by Schema weight. Here are the significant hits (FDR q-val < 0.1). Again, most GO terms relate to neuronal development, activity, and communication:
 
 
 .. csv-table:: GO Enrichment of Top Schema-identified genes
