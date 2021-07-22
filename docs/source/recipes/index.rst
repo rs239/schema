@@ -192,9 +192,11 @@ Interestingly, though, the modalities are available only in pairwise combination
 
 This organization of data might be tricky to integrate with a method which expects *each* modality to be available for *all* cells and has difficulty accomodating partial coverage of some modalities.  Of course, you could always fall back to an integrative approach that treats each modality’s cell population as independent, but then you miss out on the simultaneously-multimodal aspect of this data. 
 
-With Schema, you can have your cake and eat it too! We do 6 two-way integrations (RNA-seq as the primary modality against each of the other modalities) using the subsets of cells available in each case. Schema’s interpretable and linear framework makes it easy to combine these. Once Schema computes the optimal transformation of RNA-seq that aligns it with, say, ATAC-seq, we apply that transformation to the entire RNA-seq dataset including cells that do *not* have ATAC-seq data. Such full-dataset extensions of the pairwise syntheses can then be stacked together. Doing Leiden clustering on it would enable us to infer cell types by integrating information from all modalities. As we will show below, doing so improves quality of cell type inference over what you would get just from RNA-seq. Similarly for feature selection, the Schema's computed feature weights for each two-way synthesis can be averaged to get the gene importances for the overall synthesis. In a completely automated fashion and without any knowledge of tissue’s source or biology, we’ll find that the genes Schema identifies as important for agreement between RNA-seq data and the epigenetic modalities turn out to be very relevant to neuronal function and disease. 
+With Schema, you can have your cake and eat it too! We do 6 two-way integrations (RNA-seq as the primary modality against each of the other modalities) using the subsets of cells available in each case. Schema’s interpretable and linear framework makes it easy to combine these. Once Schema computes the optimal transformation of RNA-seq that aligns it with, say, ATAC-seq, we apply that transformation to the entire RNA-seq dataset including cells that do *not* have ATAC-seq data.
 
-First, you will need the data. The original is available on GEO (`GSE152020`_) but the individual modalities are huge (e.g., the ATAC-seq peak-counts are in a 14095x2443832 sparse matrix!). This is not unusual--- epigenetic modalites are typically very sparse (we discuss why this matters in `Paired RNA-seq and ATAC-seq`_). As a preprocessing step, we hence performed a singular value decomposition (SVD) of these modalities and also reduced the RNA-seq data to its 4,000 highly variable genes. An AnnData object with all this preprocessing is available here (please remember to also cite the original study if you use this dataset) :
+Such full-dataset extensions of the pairwise syntheses can then be stacked together. Doing Leiden clustering on the result would enable us to infer cell types by integrating information from all modalities. As we will show below, Schema's synthesis helps improve the quality of cell type inference over what you could get just from RNA-seq. Similarly for feature selection, Schema's computed feature weights for each two-way synthesis can be averaged to get the genes important to the overall synthesis. In a completely automated fashion and without any knowledge of tissue’s source or biology, we’ll find that the genes Schema identifies as important turn out to be very relevant to neuronal function and disease. Ready for more?
+
+First, you will need the data. The original is available on GEO (`GSE152020`_) but the individual modalities are huge (e.g., the ATAC-seq peak-counts are in a 14,095 x 2,443,832 sparse matrix!). This is not unusual--- epigenetic modalites are typically very sparse (we discuss why this matters in `Paired RNA-seq and ATAC-seq`_). As a preprocessing step, we hence performed a singular value decomposition (SVD) of these modalities and also reduced the RNA-seq data to its 4,000 highly variable genes. An AnnData object with all this preprocessing is available here (please remember to also cite the original study if you use this dataset) :
 
 .. code-block:: bash
 
@@ -247,7 +249,7 @@ We now do Schema runs for the 6 two-way modality combinations, with RNA-seq as t
 	desc2transforms[desc] = (sqp, dz, idx1, sqp.feature_weights(k=3))
 
 
-**Cell type inference**: In each of the 6 runs above, *dz* is a 64849x50 matrix. We can horizontally stack these matrices for a 64849x300 matrix that represents the transformation of RNA-seq data informed simultaneously by all 6 secondary modalities. 
+**Cell type inference**: In each of the 6 runs above, *dz* is a 64,849 x 50 matrix. We can horizontally stack these matrices for a 64,849 x 300 matrix that represents the transformation of RNA-seq data informed simultaneously by all 6 secondary modalities. 
    
 .. code-block:: Python
 
@@ -282,7 +284,7 @@ We then perform Leiden clustering on the original and transformed data, computin
     
 As you can see, the ARI with Schema improved from 0.437 (using only RNA-seq) to 0.446 (using all modalities). Single-cell epigenetic modalities are very sparse, making it difficult to distinguish signal from noise. However, Schema's constrained approach allows it to extract signal from these secondary modalities nonetheless, a task which has otherwise been challenging (see the related discussion in our `paper`_ or in `Paired RNA-seq and ATAC-seq`_).
 
-Before we plot these clusters, we'll relabel the  Schema leiden cluster numbers to match the numbering of original RNA-seq only clusters, in order to make the color scheme consistent. You will need to install the Python package *munkres* (`pip install munkres`) for the related computation.
+Before we plot these clusters, we'll relabel the Schema-based Leiden clusters to match the labeling of RNA-seq only Leiden clusters; this will make their color schemes consistent. You will need to install the Python package *munkres* (`pip install munkres`) for the related computation.
 
    
 .. code-block:: Python
@@ -300,10 +302,10 @@ Before we plot these clusters, we'll relabel the  Schema leiden cluster numbers 
 	sc.pl.umap(adata, color=c)
 
 .. image:: ../_static/schema_paired-tag_umap-row1.png
-   :width: 600
+   :width: 800
 
 .. image:: ../_static/schema_paired-tag_umap-row2.png
-   :width: 600
+   :width: 650
 	   
 	
 It's also interesting to identify cells where the cluster assignments changed after multi-modal synthesis. As you can see, it's only in certain cell types where the epigenetic data suggests a different clustering than the primary RNA-seq modality.
@@ -327,11 +329,11 @@ It's also interesting to identify cells where the cluster assignments changed af
 
     
 .. image:: ../_static/schema_paired-tag_gene_plots.png
-   :width: 600
+   :width: 800
     
-Many of the top genes (`Erbb4`_, `Npas3`_, `Zbtb20`_, `Luzp2`_) are known to be relevant to neuronal function or disease. Note that this required no manual supervision--- we didn't do any differential expression analysis or any other indication  that data is from brain tissue. Things just fell out of the synthesis directly.
+Many of the top genes identified by Schema (e.g., `Erbb4`_, `Npas3`_, `Zbtb20`_, `Luzp2`_) are known to be relevant to neuronal function or disease. Note that this required no manual supervision--- we didn't do any differential expression analysis against an external background or provide the method some other indication  that data is from brain tissue--- things just fell out of the synthesis directly.
 
-We did a GO enrichment analysis (via `Gorilla`_) of the top 100 genes by Schema weight. Here are some of the significant hits (FDR q-val < 0.1):
+We did a GO enrichment analysis (via `Gorilla`_) of the top 100 genes by Schema weight. Here are the significant hits (FDR q-val < 0.1). Again, most GO terms relate to neuronal development, activity, and communication:
 
 
 .. csv-table:: GO Enrichment of Top Schema-identified genes
