@@ -25,8 +25,9 @@ Schema is based on a metric learning approach and formulates the modality-synthe
 
 Read the documentation_.
 We encourage you to report issues at our `Github page`_ ; you can also create pull reports there to contribute your enhancements.
-If Schema is useful for your research, please consider citing `bioRxiv (2019)`_.
+If Schema is useful in your research, please consider citing our papers: `Genome Biology (2021)`_, with preprint in `bioRxiv (2019)`_.
 
 .. _documentation: https://schema-multimodal.readthedocs.io/en/latest/overview.html
 .. _bioRxiv (2019): http://doi.org/10.1101/834549
 .. _Github page: https://github.com/rs239/schema
+.. _Genome Biology (2021): https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02313-2

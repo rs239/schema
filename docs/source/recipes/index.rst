@@ -4,7 +4,7 @@ Data Integration Examples
 API-usage Examples
 ~~~~~~~~~~~~~~
 
-*Note*: The code snippets below show how Schema could be used for hypothetical datasets and illustrates the API usage. In the next section (`Paired RNA-seq and ATAC-seq`_) and in `Visualization`_, we describe worked examples where we also provide the dataset to try things on. We are working to add more datasets.
+*Note*: The code snippets below show how Schema could be used for hypothetical datasets and illustrates the API usage. In the next sections (`Paired RNA-seq and ATAC-seq`_, `Paired-Tag`_) and in `Visualization`_, we describe worked examples where we also provide the dataset to try things on. We are working to add more datasets.
 
 
 **Example** Correlate gene expression 1) positively with ATAC-Seq data and 2) negatively with Batch information.
@@ -178,6 +178,183 @@ The third row shows cells colored by Schema-based clustering at 99% (left) and 1
    :width: 600
 
 
+
+Paired-Tag
+~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Here we synthesize simultaneously assayed RNA-seq, ATAC-seq and histone-modification data at a single-cell resolution, from the Paired-Tag protocol described in `Zhu et al.’s study`_ of adult mouse frontal cortex and hippocampus (Nature Methods, 2021). This is a fascinating dataset with five different histone modifications assayed separately (3 repressors and 2 activators), in addition to RNA-seq and ATAC-seq. As in the original study, we consider each of the histone modifications as a separate modality, implying a hepta-modal assay! 
+
+Interestingly, though, the modalities are available only in pairwise combinations with RNA-seq: some cells were assayed for H3K4me1 & RNA-seq while another set of cells provided ATAC-seq & RNA-seq data. Here’s the overall distribution of non-RNA-seq modalities across 64,849 cells. 
+
+
+.. image:: ../_static/schema_paired-tag_data-dist.png
+   :width: 300
+
+This organization of data might be tricky to integrate with a method which expects *each* modality to be available for *all* cells and has difficulty accomodating partial coverage of some modalities.  Of course, you could always fall back to an integrative approach that treats each modality’s cell population as independent, but then you miss out on the simultaneously-multimodal aspect of this data. 
+
+With Schema, you can have your cake and eat it too! We do 6 two-way integrations (RNA-seq as the primary modality against each of the other modalities) using the subsets of cells available in each case. Schema’s interpretable and linear framework makes it easy to combine these. Once Schema computes the optimal transformation of RNA-seq that aligns it with, say, ATAC-seq, we apply that transformation to the entire RNA-seq dataset including cells that do *not* have ATAC-seq data. Such full-dataset extensions of the pairwise syntheses can then be stacked together. Doing Leiden clustering on it would enable us to infer cell types by integrating information from all modalities. As we will show below, doing so improves quality of cell type inference over what you would get just from RNA-seq. Similarly for feature selection, the Schema's computed feature weights for each two-way synthesis can be averaged to get the gene importances for the overall synthesis. In a completely automated fashion and without any knowledge of tissue’s source or biology, we’ll find that the genes Schema identifies as important for agreement between RNA-seq data and the epigenetic modalities turn out to be very relevant to neuronal function and disease. 
+
+First, you will need the data. The original is available on GEO (`GSE152020`_) but the individual modalities are huge (e.g., the ATAC-seq peak-counts are in a 14095x2443832 sparse matrix!). This is not unusual--- epigenetic modalites are typically very sparse (we discuss why this matters in `Paired RNA-seq and ATAC-seq`_). As a preprocessing step, we hence performed a singular value decomposition (SVD) of these modalities and also reduced the RNA-seq data to its 4,000 highly variable genes. An AnnData object with all this preprocessing is available here (please remember to also cite the original study if you use this dataset) :
+
+.. code-block:: bash
+
+    wget http://cb.csail.mit.edu/cb/schema/adata_dimreduced_paired-tag.pkl
+
+
+Let's load it in: 
+   
+.. code-block:: Python
+
+    import schema, pickle, anndata, sklearn.metrics
+    import scanpy as sc
+
+    # you may need to change the file location as appopriate to your setup
+    adata = pickle.load(open("adata_dimreduced_paired-tag.pkl", "rb")) 
+
+    print (adata.shape,
+	   [(c, adata.uns['SVD_'+c].shape) for c in adata.uns['sec_modalities']])
+
+	   
+As you see, we have stored the 50-dimensional SVDs of the secondary modalities in the .uns slots of the anndata object. Also look at the *adata.obs* dataframe which has UMAP coordinates, ground-truth cell type names (as assigned by Zhu et al.) etc.
+
+
+We now do Schema runs for the 6 two-way modality combinations, with RNA-seq as the primary in each run. Each run will also store the transformation on the entire 64,849-cell RNA-seq dataset and also store the gene importances.
+
+   
+.. code-block:: Python
+
+    d_rna = adata.X.todense()
+
+    desc2transforms = {}
+    for desc in adata.uns['sec_modalities']:
+	print(desc)
+	
+	# we mostly stick with the default settings, explicitly listed here for clarity
+	sqp = schema.SchemaQP(0.99, mode='affine', params= {"decomposition_model": 'pca',
+							    "num_top_components":50,
+							    "do_whiten": 0, # this is different from default
+							    "dist_npairs": 5000000})
+							    
+        # extract the relevant subset
+	idx1 = adata.obs['rowidx'][adata.uns["SVD_"+desc].index]
+	prim_d = d_rna[idx1,:]
+	sec_d = adata.uns["SVD_"+desc].values
+	print(len(idx1), prim_d.shape, sec_d.shape)
+	
+	sqp.fit(prim_d, [sec_d], ['feature_vector'], [1]) # fit on the idx1 subset...
+	dz = sqp.transform(d_rna)  # ...then transform the full RNA-seq dataset
+	
+	desc2transforms[desc] = (sqp, dz, idx1, sqp.feature_weights(k=3))
+
+
+**Cell type inference**: In each of the 6 runs above, *dz* is a 64849x50 matrix. We can horizontally stack these matrices for a 64849x300 matrix that represents the transformation of RNA-seq data informed simultaneously by all 6 secondary modalities. 
+   
+.. code-block:: Python
+
+    a6Xpca = np.hstack([dz for  _,dz,_,_ in desc2transforms.values()])
+    adata_schema = anndata.AnnData(X=a6Xpca, obs=adata.obs)
+    print (adata_schema.shape)
+
+We then perform Leiden clustering on the original and transformed data, computing the overlap with expert marker-gene-based annotation by Zhu et al.
+
+   
+.. code-block:: Python
+
+    # original
+    sc.pp.pca(adata)
+    sc.pp.neighbors(adata)
+    sc.tl.leiden(adata)
+
+    # Schema-transformed
+    # since Schema had already done PCA before it transformed, let's stick with its raw output 
+    sc.pp.neighbors(adata_schema, use_rep='X')
+    sc.tl.leiden(adata_schema)
+
+    # we'll do plots etc. with the original AnnData object
+    adata.obs['leiden_schema'] = adata_schema.obs['leiden'].values
+
+    # compute overlap with manual cell type annotations
+    ari_orig  =  sklearn.metrics.adjusted_rand_score(adata.obs.Annotation, adata.obs.leiden)
+    ari_schema=  sklearn.metrics.adjusted_rand_score(adata.obs.Annotation, adata.obs.leiden_schema)
+
+    print ("ARI: Orig: {} With Schema: {}".format( ari_orig, ari_schema))
+
+    
+As you can see, the ARI with Schema improved from 0.437 (using only RNA-seq) to 0.446 (using all modalities). Single-cell epigenetic modalities are very sparse, making it difficult to distinguish signal from noise. However, Schema's constrained approach allows it to extract signal from these secondary modalities nonetheless, a task which has otherwise been challenging (see the related discussion in our `paper`_ or in `Paired RNA-seq and ATAC-seq`_).
+
+Before we plot these clusters, we'll relabel the  Schema leiden cluster numbers to match the numbering of original RNA-seq only clusters, in order to make the color scheme consistent. You will need to install the Python package *munkres* (`pip install munkres`) for the related computation.
+
+   
+.. code-block:: Python
+
+    import munkres
+    list1 = adata.obs['leiden'].astype(int).tolist()
+    list2 = adata.obs['leiden_schema'].astype(int).tolist()
+
+    contmat = sklearn.metrics.cluster.contingency_matrix(list1, list2)
+    map21 = dict(munkres.Munkres().compute(contmat.max() - contmat))
+    adata.obs['leiden_schema_relabeled'] = [str(map21[a]) for a in list2]
+    adata.obs['Schema_reassign'] = [('Same' if (map21[a]==a) else 'Different') for a in list2]
+
+    for c in ['Annotation','Annot2', 'leiden', 'leiden_schema_relabeled', 'Schema_reassign']:
+	sc.pl.umap(adata, color=c)
+
+.. image:: ../_static/schema_paired-tag_umap-row1.png
+   :width: 600
+
+.. image:: ../_static/schema_paired-tag_umap-row2.png
+   :width: 600
+	   
+	
+It's also interesting to identify cells where the cluster assignments changed after multi-modal synthesis. As you can see, it's only in certain cell types where the epigenetic data suggests a different clustering than the primary RNA-seq modality.
+
+.. image:: ../_static/schema_paired-tag_umap-row3.png
+   :width: 300
+
+**Gene set identification**  The feature importances output by Schema here identify the genes whose expression best agrees with epigenetic data in these tissues. We first aggregate the feature importances across the 6 two-ways runs:
+   
+.. code-block:: Python
+
+    df_genes = pd.DataFrame({'gene': adata.var.symbol})
+    for desc, (_,_,_,wts) in desc2transforms.items():
+	df_genes[desc] = wts
+    df_genes['avg_wt'] = df_genes.iloc[:,1:].mean(axis=1)
+    df_genes = df_genes.sort_values('avg_wt', ascending=False).reset_index(drop=True)
+
+    gene_list = df_genes.gene.values
+
+    sc.pl.umap(adata, color= gene_list[:6], gene_symbols='symbol', color_map='plasma', frameon=False, ncols=3)    
+
+    
+.. image:: ../_static/schema_paired-tag_gene_plots.png
+   :width: 600
+    
+Many of the top genes (`Erbb4`_, `Npas3`_, `Zbtb20`_, `Luzp2`_) are known to be relevant to neuronal function or disease. Note that this required no manual supervision--- we didn't do any differential expression analysis or any other indication  that data is from brain tissue. Things just fell out of the synthesis directly.
+
+We did a GO enrichment analysis (via `Gorilla`_) of the top 100 genes by Schema weight. Here are some of the significant hits (FDR q-val < 0.1):
+
+
+.. csv-table:: GO Enrichment of Top Schema-identified genes
+   :file: ../_static/schema_paired-tag_go-annot.csv
+   :widths: 20, 80
+   :header-rows: 0
+
+
+
+
+
 .. _Visualization: https://schema-multimodal.readthedocs.io/en/latest/visualization/index.html#ageing-fly-brain
 
 .. _Cao et al.'s: https://science.sciencemag.org/content/361/6409/1380/
+
+.. _paper: https://genomebiology.biomedcentral.com/articles/10.1186/s13059-021-02313-2
+
+.. _Erbb4: https://www.ncbi.nlm.nih.gov/gene/2066
+
+.. _Npas3: https://www.ncbi.nlm.nih.gov/gene/64067
+
+.. _Zbtb20: https://www.ncbi.nlm.nih.gov/gene/26137
+
+.. _Luzp2: https://www.ncbi.nlm.nih.gov/gene/338645
+
+.. _Gorilla: http://cbl-gorilla.cs.technion.ac.il/
