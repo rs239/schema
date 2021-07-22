@@ -249,7 +249,7 @@ We now do Schema runs for the 6 two-way modality combinations, with RNA-seq as t
 	desc2transforms[desc] = (sqp, dz, idx1, sqp.feature_weights(k=3))
 
 
-**Cell type inference**: In each of the 6 runs above, *dz* is a 64,849 x 50 matrix. We can horizontally stack these matrices for a 64,849 x 300 matrix that represents the transformation of RNA-seq data informed simultaneously by all 6 secondary modalities. 
+**Cell type inference:**: In each of the 6 runs above, *dz* is a 64,849 x 50 matrix. We can horizontally stack these matrices for a 64,849 x 300 matrix that represents the transformation of RNA-seq data informed simultaneously by all 6 secondary modalities. 
    
 .. code-block:: Python
 
@@ -284,7 +284,7 @@ We then perform Leiden clustering on the original and transformed data, computin
     
 As you can see, the ARI with Schema improved from 0.437 (using only RNA-seq) to 0.446 (using all modalities). Single-cell epigenetic modalities are very sparse, making it difficult to distinguish signal from noise. However, Schema's constrained approach allows it to extract signal from these secondary modalities nonetheless, a task which has otherwise been challenging (see the related discussion in our `paper`_ or in `Paired RNA-seq and ATAC-seq`_).
 
-Before we plot these clusters, we'll relabel the Schema-based Leiden clusters to match the labeling of RNA-seq only Leiden clusters; this will make their color schemes consistent. You will need to install the Python package *munkres* (`pip install munkres`) for the related computation.
+Before we plot these clusters, we'll relabel the Schema-based Leiden clusters to match the labeling of RNA-seq only Leiden clusters; this will make their color schemes consistent. You will need to install the Python package *munkres* (:code:`pip install munkres`) for the related computation.
 
    
 .. code-block:: Python
@@ -313,7 +313,7 @@ It's also interesting to identify cells where the cluster assignments changed af
 .. image:: ../_static/schema_paired-tag_umap-row3.png
    :width: 300
 
-**Gene set identification**  The feature importances output by Schema here identify the genes whose expression best agrees with epigenetic data in these tissues. We first aggregate the feature importances across the 6 two-ways runs:
+**Gene set identification:**  The feature importances output by Schema here identify the genes whose expression variations best agree with epigenetic variations in these tissues. We first aggregate the feature importances across the 6 two-ways runs:
    
 .. code-block:: Python
 
@@ -331,7 +331,7 @@ It's also interesting to identify cells where the cluster assignments changed af
 .. image:: ../_static/schema_paired-tag_gene_plots.png
    :width: 800
     
-Many of the top genes identified by Schema (e.g., `Erbb4`_, `Npas3`_, `Zbtb20`_, `Luzp2`_) are known to be relevant to neuronal function or disease. Note that this required no manual supervision--- we didn't do any differential expression analysis against an external background or provide the method some other indication  that data is from brain tissue--- things just fell out of the synthesis directly.
+Many of the top genes identified by Schema (e.g., `Erbb4`_, `Npas3`_, `Zbtb20`_, `Luzp2`_) are known to be relevant to neuronal function or disease. Note that all of this fell out of the synthesis directly--- we didn't do any differential expression analysis against an external background or provide the method some other indication that data is from brain tissue.
 
 We did a GO enrichment analysis (via `Gorilla`_) of the top 100 genes by Schema weight. Here are the significant hits (FDR q-val < 0.1). Again, most GO terms relate to neuronal development, activity, and communication:
 
@@ -360,3 +360,8 @@ We did a GO enrichment analysis (via `Gorilla`_) of the top 100 genes by Schema 
 .. _Luzp2: https://www.ncbi.nlm.nih.gov/gene/338645
 
 .. _Gorilla: http://cbl-gorilla.cs.technion.ac.il/
+
+.. _Zhu et al.’s study: https://www.nature.com/articles/s41592-021-01060-3
+
+.. _GSE152020: https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE152020
+
