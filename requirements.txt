@@ -12,3 +12,4 @@ legacy-api-wrap
 setuptools_scm
 packaging
 sinfo
+scanpy
