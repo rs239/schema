@@ -14,7 +14,8 @@ import pkgutil, pathlib, importlib
 # https://julienharbulot.com/python-dynamical-import.html
 # iterate through the modules in the current package
 #
-package_dir = pathlib.Path(__file__).resolve().parent
+package_dir = str(pathlib.Path(__file__).resolve().parent)
+
 for (_, module_name, _) in pkgutil.iter_modules([package_dir]):
     if 'datasets' in module_name:
         module = importlib.import_module(f"{__name__}.{module_name}")
